@@ -1,6 +1,6 @@
 import "./index.css";
 import "@esri/calcite-components/components/calcite-shell";
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { authenticate } from "./autho";
@@ -30,14 +30,7 @@ export default function App() {
   //------------------------
   const [loggedInState, setLoggedInState] = useState<boolean>(false);
 
-  // Guards against StrictMode's dev-only double-invoke of effects, which
-  // would otherwise fire authenticate() (and its network calls) twice.
-  const hasAuthenticated = useRef(false);
-
   useEffect(() => {
-    if (hasAuthenticated.current) return;
-    hasAuthenticated.current = true;
-
     authenticate(setLoggedInState, "V2b9ysdMrpUBEWv4");
   }, []);
 
