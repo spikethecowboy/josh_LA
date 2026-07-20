@@ -64,13 +64,22 @@ export default function ActionBar() {
         ></calcite-action>
       </calcite-action-bar>
 
-      {/* Basemap panel — always mounted for instant load */}
+      {/* Basemap panel — always mounted for instant load. Visibility is
+          driven entirely by `activePanel` + the display style below;
+          the close button just calls setActivePanel(null) directly
+          instead of using calcite-panel's own `closable`/internal closed
+          state, which doesn't reset itself when the panel is reopened
+          from the action bar. */}
       <calcite-panel
         heading="Basemap"
-        closable
-        oncalcitePanelClose={() => setActivePanel(null)}
         style={{ display: activePanel === "basemap" ? "block" : "none" }}
       >
+        <calcite-action
+          slot="header-actions-end"
+          icon="x"
+          text="Close"
+          onClick={() => setActivePanel(null)}
+        ></calcite-action>
         <div style={{ overflowY: "auto", overflowX: "hidden", maxHeight: "calc(100vh - 120px)" }}>
           <arcgis-basemap-gallery referenceElement="mmsp-map"></arcgis-basemap-gallery>
         </div>
@@ -80,10 +89,14 @@ export default function ActionBar() {
           and per-layer expandable legend panel in one built-in widget */}
       <calcite-panel
         heading="Layers"
-        closable
-        oncalcitePanelClose={() => setActivePanel(null)}
         style={{ display: activePanel === "layers" ? "block" : "none" }}
       >
+        <calcite-action
+          slot="header-actions-end"
+          icon="x"
+          text="Close"
+          onClick={() => setActivePanel(null)}
+        ></calcite-action>
         <div style={{ overflowY: "auto", overflowX: "hidden", maxHeight: "calc(100vh - 120px)" }}>
           <arcgis-layer-list
             ref={layerListRef}
