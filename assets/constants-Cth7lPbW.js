@@ -1,1 +1,0 @@
-import{db as i}from"./index-C-sMy8Qw.js";const t=15.5,e=4,r=64,l=1024,d={outlineWidth:.75,referenceWidth:.75,cap:i.CIMSolidStroke.capstyle,join:i.CIMSolidStroke.joinstyle,miterLimit:i.CIMSolidStroke.miterlimit};export{t as e,e as i,d as l,r as o,l as r};
