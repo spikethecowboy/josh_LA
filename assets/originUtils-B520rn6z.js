@@ -1,1 +1,0 @@
-import{aB as o}from"./index-DS0vuG9W.js";function p(t){t?.writtenProperties&&t.writtenProperties.forEach(({target:r,propName:e,newOrigin:i})=>{o(r)&&i&&r.originOf(e)!==i&&r.updateOrigin(e,i)})}export{p as i};
