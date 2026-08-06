@@ -6,14 +6,17 @@ export type SelectedLocation = {
   station: string | null;
 };
 
+// Which chart a selected pie slice belongs to, plus its code
+export type StatusSelection = {
+  source: "lot" | "isf" | "structure";
+  code: number | string;
+} | null;
+
 type MyContextValue = {
   selectedLocation: SelectedLocation;
   updateLocation: Dispatch<SetStateAction<SelectedLocation>>;
-  // Status code of the currently clicked pie slice (null = none selected).
-  // Lives here (not local to LotChart) so MapDisplay can combine it with
-  // selectedLocation as the single source of truth for map filtering/zoom.
-  selectedStatus: number | null;
-  updateStatus: Dispatch<SetStateAction<number | null>>;
+  selectedStatus: StatusSelection;
+  updateStatus: Dispatch<SetStateAction<StatusSelection>>;
 };
 
 export const MyContext = createContext<MyContextValue>({

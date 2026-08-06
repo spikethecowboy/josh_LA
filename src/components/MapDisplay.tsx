@@ -3,20 +3,20 @@ import "../index.css";
 import "@arcgis/map-components/components/arcgis-compass";
 import "@arcgis/map-components/components/arcgis-map";
 
-import { useContext, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 
 import type { ArcgisMap } from "@arcgis/map-components/dist/components/arcgis-map";
 import type MapView from "@arcgis/core/views/MapView";
 
-import { lotLayer, alignmentLayer, stationLayer, lotStatusField } from "../layers";
-import { MyContext } from "../contexts/MyContext";
-import { filterAndGetTargetExtent } from "../MapQuery";
+import { lotLayer, alignmentLayer, stationLayer, structureLayer, ISFLayer } from "../layers";
+
+// Module-level (not a React ref) so LotChart/ISFChart can import it and
+// call goTo() directly, without threading the view through context.
+export const mapView: { current: MapView | null } = { current: null };
 
 export default function MapDisplay() {
   const mapRef = useRef<ArcgisMap | null>(null);
   const viewRef = useRef<MapView | null>(null);
-
-  const { selectedLocation, selectedStatus } = useContext(MyContext);
 
   // ----------------------------------------------------
   // EFFECT 1: One-time map setup.
@@ -31,37 +31,18 @@ export default function MapDisplay() {
 
       if (!viewRef.current) return;
 
+      // Publish the view so LotChart/ISFChart can drive goTo() themselves.
+      mapView.current = viewRef.current;
+
       viewRef.current.map?.add(lotLayer);
       viewRef.current.map?.add(alignmentLayer);
       viewRef.current.map?.add(stationLayer);
+      viewRef.current.map?.add(structureLayer);
+      viewRef.current.map?.add(ISFLayer);
     };
 
     initializeMap();
   }, []);
-
-  // ----------------------------------------------------
-  // EFFECT 2: Re-filter whenever selectedLocation OR selectedStatus
-  // changes, then zoom to the returned extent (if any). This is the ONLY
-  // place lotLayer's definitionExpression and view.goTo are called —
-  // Dropdown.tsx and LotChart.tsx just update context; this effect reacts
-  // to that regardless of which one triggered the change.
-  // ----------------------------------------------------
-  useEffect(() => {
-    const { packageName, type, station } = selectedLocation;
-
-    filterAndGetTargetExtent(
-      lotLayer,
-      packageName,
-      type,
-      station,
-      selectedStatus,
-      lotStatusField,
-    ).then((extent) => {
-      if (extent && viewRef.current) {
-        viewRef.current.goTo(extent);
-      }
-    });
-  }, [selectedLocation, selectedStatus]);
 
   return (
     <arcgis-map

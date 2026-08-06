@@ -53,12 +53,14 @@ export async function fieldStatistic({
   return response.features[0]?.attributes[OUT_FIELD] ?? 0;
 }
 
-// Per-status breakdown for the pie chart. `where` must already include the
-// "private lots only" condition (StatusNVS3 IS NOT NULL) via the caller.
+// Per-status breakdown for the pie chart. `where` must already include any
+// caller-side filtering (e.g. "private lots only" for LotChart).
+// `code` accepts string | number so this one function serves both numeric
+// status codes (lotStatuses) and text-based ones (isfStatuses).
 type PieChartStatusDataArgs = {
   where?: string;
   layer: any;
-  statusList: { code: number; label: string; color: string }[];
+  statusList: { code: string | number; label: string; color: string }[];
   statusField: string;
   statisticField: string;
   statisticType: StatisticType;
@@ -77,7 +79,7 @@ export async function pieChartStatusData({
   statusQuery.outStatistics = [
     new StatisticDefinition({
       onStatisticField: statisticField,
-      outStatisticFieldName: "total_lot_status",
+      outStatisticFieldName: "total_status",
       statisticType,
     }),
   ];
@@ -86,20 +88,20 @@ export async function pieChartStatusData({
 
   const statusResponse = await layer.queryFeatures(statusQuery);
 
-  // attach each status's color/code from statusList so LotChart can bind slice fill + click handling directly
+  // attach each status's color/code from statusList so the chart can bind slice fill + click handling directly
   return statusList.map(
     ({
       code,
       label,
       color,
-    }): { category: string; value: number; color: string; code: number } => {
+    }): { category: string; value: number; color: string; code: string | number } => {
       const feature = statusResponse.features.find(
         (f: any) => f.attributes[statusField] === code,
       );
 
       return {
         category: label,
-        value: feature?.attributes.total_lot_status ?? 0,
+        value: feature?.attributes.total_status ?? 0,
         color,
         code,
       };

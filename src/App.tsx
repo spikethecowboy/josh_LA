@@ -10,7 +10,7 @@ import MapDisplay from "./components/MapDisplay";
 import SidePanel from "./components/SidePanel";
 import ActionBar from "./components/ActionBar";
 
-import { MyContext, type SelectedLocation } from "./contexts/MyContext";
+import { MyContext, type SelectedLocation, type StatusSelection } from "./contexts/MyContext";
 
 // ----------------------------------------------------
 // Created once outside the component so it's never recreated on re-renders
@@ -42,10 +42,10 @@ export default function App() {
     station: null,
   });
 
-  // Status code of the currently clicked pie slice (set from LotChart),
-  // shared so MapDisplay can combine it with selectedLocation for map
-  // filtering/zoom.
-  const [selectedStatus, setSelectedStatus] = useState<number | null>(null);
+  // Tagged { source, code } of whichever chart's pie slice is currently
+  // selected (Lot, ISF, and later Structure), shared so MapDisplay can
+  // combine it with selectedLocation for map filtering/zoom.
+  const [selectedStatus, setSelectedStatus] = useState<StatusSelection>(null);
 
   // Bundles state + updaters into one stable object so context consumers
   // don't re-render unless something in here actually changed.

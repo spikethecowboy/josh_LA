@@ -6,85 +6,49 @@ import * as am5 from "@amcharts/amcharts5";
 import * as am5percent from "@amcharts/amcharts5/percent";
 import am5themes_Animated from "@amcharts/amcharts5/themes/Animated";
 import am5themes_Responsive from "@amcharts/amcharts5/themes/Responsive";
-import {
-  lotLayer,
-  lotStatuses,
-  lotstatisticField,
-  lotStatusField,
-} from "../layers";
+import { ISFLayer, isfStatuses, isfstatisticfield, isfStatusField } from "../layers";
 import QueryExpressionLayers from "../CreateQueryJosh";
 import { filterAndGetTargetExtent } from "../MapQuery";
 import { mapView } from "../components/MapDisplay";
 
-const CHART_ID = "lotPieChart";
+const CHART_ID = "isfPieChart";
 
 type ChartDatum = { category: string; value: number; color: string; code: number | string };
 
 // ----------------------------------------------------
 // LOCAL HOOK: data fetching
-// Builds all 5 where-clauses via QueryExpressionLayers and runs the
-// queries in parallel. Kept local to this file since it's only used here —
-// promote to its own useLotData.ts if a second chart ever needs this shape.
+// Same shape as LotChart's useLotData — filters by the shared
+// selectedLocation (Package/Type/Station) via QueryExpressionLayers.
 // ----------------------------------------------------
-function useLotData({ packageName, type, station }: SelectedLocation) {
+function useISFData({ packageName, type, station }: SelectedLocation) {
   return useQuery({
-    queryKey: ["totalLots", packageName, type, station],
+    queryKey: ["totalISF", packageName, type, station],
     queryFn: async () => {
       const baseFilter = {
-        qFields: ["Package", "Type", "Station1"] as [any?, any?, any?],
+        qFields: ["Package", "Type", "Station1"] as [any?,any?,any?],
         qValues: [packageName, type, station] as [any?, any?, any?],
       };
 
-      const totalWhere = new QueryExpressionLayers({ ...baseFilter }).queryExpression();
-      const publicWhere = new QueryExpressionLayers({
-        ...baseFilter,
-        qExpression: "StatusNVS3 IS NULL",
-      }).queryExpression();
-      const handedOverWhere = new QueryExpressionLayers({
-        ...baseFilter,
-        qExpression: "HandedOVer = 1",
-      }).queryExpression();
-      const toBeHandedOverWhere = new QueryExpressionLayers({
-        ...baseFilter,
-        qExpression: "not_yet = 1",
-      }).queryExpression();
-      const statusWhere = new QueryExpressionLayers({
-        ...baseFilter,
-        qExpression: "StatusNVS3 IS NOT NULL",
-      }).queryExpression();
+      const where = new QueryExpressionLayers({ ...baseFilter }).queryExpression();
 
-      const commonArgs = {
-        layer: lotLayer,
-        statisticField: lotstatisticField,
-        statisticType: "count" as const,
-      };
+      const [totalNumber, chartData] = await Promise.all([
+        fieldStatistic({
+          where,
+          layer: ISFLayer,
+          statisticField: isfstatisticfield,
+          statisticType: "count",
+        }),
+        pieChartStatusData({
+          where,
+          layer: ISFLayer,
+          statusList: isfStatuses,
+          statusField: isfStatusField,
+          statisticField: isfstatisticfield,
+          statisticType: "count",
+        }),
+      ]);
 
-      const [totalNumber, publicNumber, handedOverNumber, toBeHandedOverNumber, chartData] =
-        await Promise.all([
-          fieldStatistic({ where: totalWhere, ...commonArgs }),
-          fieldStatistic({ where: publicWhere, ...commonArgs }),
-          fieldStatistic({ where: handedOverWhere, ...commonArgs }),
-          fieldStatistic({ where: toBeHandedOverWhere, ...commonArgs }),
-          pieChartStatusData({
-            where: statusWhere,
-            layer: lotLayer,
-            statusList: lotStatuses,
-            statusField: lotStatusField,
-            statisticField: lotstatisticField,
-            statisticType: "count",
-          }),
-        ]);
-
-      const privateNumber = totalNumber - publicNumber;
-
-      return {
-        totalNumber,
-        publicNumber,
-        privateNumber,
-        handedOverNumber,
-        toBeHandedOverNumber,
-        chartData,
-      };
+      return { totalNumber, chartData: chartData as ChartDatum[] };
     },
   });
 }
@@ -99,18 +63,13 @@ function maybeDisposeRoot(divId: string) {
 
 // ----------------------------------------------------
 // LOCAL HOOK: chart lifecycle
-// Builds the amCharts pie chart once on mount, disposes on unmount, and
-// pumps new chartData in without rebuilding. Kept local for the same
-// reason as useLotData above.
-//
-// Deals purely in plain `number | null` codes — the tagging (source:
-// "lot") happens one level up, in the component, when reading from/
-// writing to the shared context. Keeps this hook reusable as-is
-// regardless of how many chart domains share that context field.
+// Same amCharts setup/lifecycle as LotChart's usePieChart. Deals purely
+// in plain `string | null` codes — the tagging (source: "isf") happens
+// one level up, in the component.
 // ----------------------------------------------------
 function usePieChart(
   chartData: ChartDatum[],
-  selectedCode: number | string | null,
+  selectedCode: number |string | null,
   onSliceClick: (code: number | string | null) => void,
 ) {
   const pieSeriesRef = useRef<any>({});
@@ -208,63 +167,58 @@ function usePieChart(
 }
 
 // ----------------------------------------------------
-// COMPONENT — wires the two hooks above together, drives lotLayer's
+// COMPONENT — wires the two hooks together, drives ISFLayer's
 // filter + map zoom, and renders
 // ----------------------------------------------------
-export default function LotChart() {
+export default function ISFChart() {
   const { selectedLocation, selectedStatus, updateStatus } = useContext(MyContext);
 
   // Only treat the shared selection as "ours" when it's tagged source:
-  // "lot" — a selection from ISF (or later, Structure) means no lot
+  // "isf" — a selection from Lot (or later, Structure) means no ISF
   // slice is currently active.
-  const lotSelectedCode =
-    selectedStatus?.source === "lot" ? (selectedStatus.code as number) : null;
+  const isfSelectedCode =
+    selectedStatus?.source === "isf" ? (selectedStatus.code as string) : null;
 
   const handleSliceClick = (code: number | string | null) => {
-    updateStatus(code === null ? null : { source: "lot", code });
+    updateStatus(code === null ? null : { source: "isf", code });
   };
 
-  const { data, isLoading, isError } = useLotData(selectedLocation);
+  const { data, isLoading, isError } = useISFData(selectedLocation);
   const chartData = data?.chartData ?? [];
 
-  usePieChart(chartData, lotSelectedCode, handleSliceClick);
+  usePieChart(chartData, isfSelectedCode, handleSliceClick);
 
   // ----------------------------------------------------
-  // EFFECT: filter lotLayer and drive map zoom whenever the shared
-  // location or status selection changes. Only zooms when no status is
-  // selected yet, or when the active selection belongs to this chart
-  // (source === "lot") — mirrors the old MapDisplay EFFECT 2, just
-  // scoped to this layer so lot filtering/zooming lives next to the
-  // chart that triggers it.
+  // EFFECT: filter ISFLayer and drive map zoom whenever the shared
+  // location or status selection changes. Only zooms when the active
+  // selection belongs to this chart (source === "isf") — mirrors the
+  // old MapDisplay EFFECT 2, just scoped to this layer so ISF
+  // filtering/zooming lives next to the chart that triggers it.
   // ----------------------------------------------------
   useEffect(() => {
     const { packageName, type, station } = selectedLocation;
-    const shouldZoom = selectedStatus === null || selectedStatus.source === "lot";
+    const shouldZoom = selectedStatus?.source === "isf";
 
     filterAndGetTargetExtent(
-      lotLayer,
+      ISFLayer,
       packageName,
       type,
       station,
-      lotSelectedCode,
-      lotStatusField,
+      isfSelectedCode,
+      isfStatusField,
     ).then((extent) => {
       if (extent && mapView.current && shouldZoom) {
         mapView.current.goTo(extent);
       }
     });
-  }, [selectedLocation, selectedStatus, lotSelectedCode]);
+  }, [selectedLocation, selectedStatus, isfSelectedCode]);
 
   const totalNumber = data?.totalNumber ?? 0;
-  const publicNumber = data?.publicNumber ?? 0;
-  const privateNumber = data?.privateNumber ?? 0;
-  const handedOverNumber = data?.handedOverNumber ?? 0;
-  const toBeHandedOverNumber = data?.toBeHandedOverNumber ?? 0;
 
   if (isError) {
     return (
       <div style={{ color: "#ff6b6b", padding: "16px" }}>
-        Failed to load lot data. Please check your connection.
+        Failed to load ISF data. Please check your connection.
       </div>
     );
   }
@@ -273,21 +227,9 @@ export default function LotChart() {
     <>
       <div style={{ display: "flex", gap: "24px", justifyContent: "center", width: "100%", color: "white" }}>
         <div>
-          <div style={{ fontSize: "12px", opacity: 0.7, textAlign: "center" }}>TOTAL LOTS</div>
+          <div style={{ fontSize: "12px", opacity: 0.7, textAlign: "center" }}>TOTAL ISF</div>
           <div style={{ fontSize: "28px", fontWeight: 600, textAlign: "center" }}>
             {isLoading ? "" : totalNumber.toLocaleString()}
-          </div>
-        </div>
-        <div>
-          <div style={{ fontSize: "12px", opacity: 0.7, textAlign: "center" }}>PUBLIC LOTS</div>
-          <div style={{ fontSize: "28px", fontWeight: 600, textAlign: "center" }}>
-            {isLoading ? "" : publicNumber.toLocaleString()}
-          </div>
-        </div>
-        <div>
-          <div style={{ fontSize: "12px", opacity: 0.7, textAlign: "center" }}>PRIVATE LOTS</div>
-          <div style={{ fontSize: "28px", fontWeight: 600, textAlign: "center" }}>
-            {isLoading ? "" : privateNumber.toLocaleString()}
           </div>
         </div>
       </div>
@@ -304,21 +246,6 @@ export default function LotChart() {
           transition: "opacity 0.2s",
         }}
       ></div>
-
-      <div style={{ display: "flex", gap: "24px", justifyContent: "center", width: "100%", color: "white" }}>
-        <div>
-          <div style={{ fontSize: "12px", opacity: 0.7, textAlign: "center" }}>HANDED OVER LOTS</div>
-          <div style={{ fontSize: "28px", fontWeight: 600, textAlign: "center" }}>
-            {isLoading ? "" : handedOverNumber.toLocaleString()}
-          </div>
-        </div>
-        <div>
-          <div style={{ fontSize: "12px", opacity: 0.7, textAlign: "center" }}>TO BE HANDED OVER LOTS</div>
-          <div style={{ fontSize: "28px", fontWeight: 600, textAlign: "center" }}>
-            {isLoading ? "" : toBeHandedOverNumber.toLocaleString()}
-          </div>
-        </div>
-      </div>
     </>
   );
 }

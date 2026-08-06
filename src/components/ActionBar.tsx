@@ -16,6 +16,12 @@ export default function ActionBar() {
   // Tracks which panel is open. null = all closed.
   const [activePanel, setActivePanel] = useState<ActivePanel>(null);
 
+  // Tracks every panel that's been opened at least once. Panels are only
+  // rendered into the DOM after their first visit, so arcgis-basemap-gallery
+  // and arcgis-layer-list don't do any setup work until the user actually
+  // asks for them.
+  const [visitedPanels, setVisitedPanels] = useState<Set<string>>(new Set());
+
   // Ref to the LayerList so we can configure its per-item legend panel
   // imperatively. `listItemCreatedFunction` is a JS callback (not a plain
   // attribute value), so it has to be set as a DOM property via ref.
@@ -31,10 +37,13 @@ export default function ActionBar() {
         open: true,
       };
     };
-  }, []);
+    // Re-run once the layers panel actually mounts (first visit), since
+    // layerListRef.current is null until then.
+  }, [visitedPanels]);
 
   const togglePanel = (panel: ActivePanel) => {
     setActivePanel((prev) => (prev === panel ? null : panel));
+    setVisitedPanels((prev) => new Set(prev).add(panel as string));
   };
 
   return (
@@ -64,46 +73,51 @@ export default function ActionBar() {
         ></calcite-action>
       </calcite-action-bar>
 
-      {/* Basemap panel — always mounted for instant load. Visibility is
+      {/* Basemap panel — only mounted after first visit. Visibility is
           driven entirely by `activePanel` + the display style below;
           the close button just calls setActivePanel(null) directly
           instead of using calcite-panel's own `closable`/internal closed
           state, which doesn't reset itself when the panel is reopened
           from the action bar. */}
-      <calcite-panel
-        heading="Basemap"
-        style={{ display: activePanel === "basemap" ? "block" : "none" }}
-      >
-        <calcite-action
-          slot="header-actions-end"
-          icon="x"
-          text="Close"
-          onClick={() => setActivePanel(null)}
-        ></calcite-action>
-        <div style={{ overflowY: "auto", overflowX: "hidden", maxHeight: "calc(100vh - 120px)" }}>
-          <arcgis-basemap-gallery referenceElement="mmsp-map"></arcgis-basemap-gallery>
-        </div>
-      </calcite-panel>
+      {visitedPanels.has("basemap") && (
+        <calcite-panel
+          heading="Basemap"
+          style={{ display: activePanel === "basemap" ? "block" : "none" }}
+        >
+          <calcite-action
+            slot="header-actions-end"
+            icon="x"
+            text="Close"
+            onClick={() => setActivePanel(null)}
+          ></calcite-action>
+          <div style={{ overflowY: "auto", overflowX: "hidden", maxHeight: "calc(100vh - 120px)" }}>
+            <arcgis-basemap-gallery referenceElement="mmsp-map"></arcgis-basemap-gallery>
+          </div>
+        </calcite-panel>
+      )}
 
       {/* Layers panel — arcgis-layer-list gives us the checkbox, title,
-          and per-layer expandable legend panel in one built-in widget */}
-      <calcite-panel
-        heading="Layers"
-        style={{ display: activePanel === "layers" ? "block" : "none" }}
-      >
-        <calcite-action
-          slot="header-actions-end"
-          icon="x"
-          text="Close"
-          onClick={() => setActivePanel(null)}
-        ></calcite-action>
-        <div style={{ overflowY: "auto", overflowX: "hidden", maxHeight: "calc(100vh - 120px)" }}>
-          <arcgis-layer-list
-            ref={layerListRef}
-            referenceElement="mmsp-map"
-          ></arcgis-layer-list>
-        </div>
-      </calcite-panel>
+          and per-layer expandable legend panel in one built-in widget.
+          Only mounted after first visit. */}
+      {visitedPanels.has("layers") && (
+        <calcite-panel
+          heading="Layers"
+          style={{ display: activePanel === "layers" ? "block" : "none" }}
+        >
+          <calcite-action
+            slot="header-actions-end"
+            icon="x"
+            text="Close"
+            onClick={() => setActivePanel(null)}
+          ></calcite-action>
+          <div style={{ overflowY: "auto", overflowX: "hidden", maxHeight: "calc(100vh - 120px)" }}>
+            <arcgis-layer-list
+              ref={layerListRef}
+              referenceElement="mmsp-map"
+            ></arcgis-layer-list>
+          </div>
+        </calcite-panel>
+      )}
     </calcite-shell-panel>
   );
 }

@@ -10,7 +10,7 @@ export function buildWhereClause(
   packageName: string | null,
   type: string | null,
   station: string | null,
-  status: number | null,
+  status: number | string | null,
   statusField: string,
 ): string {
   const clauses: string[] = [];
@@ -18,7 +18,12 @@ export function buildWhereClause(
   if (packageName) clauses.push(`Package = '${packageName}'`);
   if (type) clauses.push(`Type = '${type}'`);
   if (station) clauses.push(`Station1 = '${station}'`);
-  if (status !== null) clauses.push(`${statusField} = ${status}`);
+  if (status !== null) {
+    // Numeric statuses (Lot) go in unquoted; string statuses (ISF) need
+    // quotes or the SQL treats the value as a bare column/identifier.
+    const statusLiteral = typeof status === "string" ? `'${status}'` : status;
+    clauses.push(`${statusField} = ${statusLiteral}`);
+  }
 
   return clauses.length > 0 ? clauses.join(" AND ") : "1=1";
 }
@@ -35,7 +40,7 @@ export async function filterAndGetTargetExtent(
   packageName: string | null,
   type: string | null,
   station: string | null,
-  status: number | null,
+  status: number | string | null,
   statusField: string,
 ): Promise<Extent | null> {
   const whereExpression = buildWhereClause(packageName, type, station, status, statusField);
