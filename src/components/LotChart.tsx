@@ -1,6 +1,7 @@
 import { useContext, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { MyContext, type SelectedLocation } from "../contexts/MyContext";
+import { useTimeSliderContext } from "../contexts/TimeSliderContext";
 import { fieldStatistic, pieChartStatusData } from "../Query";
 import * as am5 from "@amcharts/amcharts5";
 import * as am5percent from "@amcharts/amcharts5/percent";
@@ -10,7 +11,6 @@ import {
   lotLayer,
   lotStatuses,
   lotstatisticField,
-  lotStatusField,
 } from "../layers";
 import QueryExpressionLayers from "../CreateQueryJosh";
 import { filterAndGetTargetExtent } from "../MapQuery";
@@ -22,13 +22,27 @@ type ChartDatum = { category: string; value: number; color: string; code: number
 
 // ----------------------------------------------------
 // LOCAL HOOK: data fetching
-// Builds all 5 where-clauses via QueryExpressionLayers and runs the
-// queries in parallel. Kept local to this file since it's only used here —
-// promote to its own useLotData.ts if a second chart ever needs this shape.
+// All three "active" fields (status/handedOver/notYet) come from
+// TimeSliderContext — they're the date-specific NVS/JV/NY fields while
+// the slider is on, or the defaults (StatusNVS3/HandedOVer/not_yet)
+// while it's off.
 // ----------------------------------------------------
-function useLotData({ packageName, type, station }: SelectedLocation) {
+function useLotData(
+  { packageName, type, station }: SelectedLocation,
+  statusField: string,
+  handedOverField: string,
+  notYetField: string,
+) {
   return useQuery({
-    queryKey: ["totalLots", packageName, type, station],
+    queryKey: [
+      "totalLots",
+      packageName,
+      type,
+      station,
+      statusField,
+      handedOverField,
+      notYetField,
+    ],
     queryFn: async () => {
       const baseFilter = {
         qFields: ["Package", "Type", "Station1"] as [any?, any?, any?],
@@ -38,19 +52,19 @@ function useLotData({ packageName, type, station }: SelectedLocation) {
       const totalWhere = new QueryExpressionLayers({ ...baseFilter }).queryExpression();
       const publicWhere = new QueryExpressionLayers({
         ...baseFilter,
-        qExpression: "StatusNVS3 IS NULL",
+        qExpression: `${statusField} IS NULL`,
       }).queryExpression();
       const handedOverWhere = new QueryExpressionLayers({
         ...baseFilter,
-        qExpression: "HandedOVer = 1",
+        qExpression: `${handedOverField} = 1`,
       }).queryExpression();
       const toBeHandedOverWhere = new QueryExpressionLayers({
         ...baseFilter,
-        qExpression: "not_yet = 1",
+        qExpression: `${notYetField} = 1`,
       }).queryExpression();
       const statusWhere = new QueryExpressionLayers({
         ...baseFilter,
-        qExpression: "StatusNVS3 IS NOT NULL",
+        qExpression: `${statusField} IS NOT NULL`,
       }).queryExpression();
 
       const commonArgs = {
@@ -69,7 +83,7 @@ function useLotData({ packageName, type, station }: SelectedLocation) {
             where: statusWhere,
             layer: lotLayer,
             statusList: lotStatuses,
-            statusField: lotStatusField,
+            statusField: statusField,
             statisticField: lotstatisticField,
             statisticType: "count",
           }),
@@ -98,15 +112,7 @@ function maybeDisposeRoot(divId: string) {
 }
 
 // ----------------------------------------------------
-// LOCAL HOOK: chart lifecycle
-// Builds the amCharts pie chart once on mount, disposes on unmount, and
-// pumps new chartData in without rebuilding. Kept local for the same
-// reason as useLotData above.
-//
-// Deals purely in plain `number | null` codes — the tagging (source:
-// "lot") happens one level up, in the component, when reading from/
-// writing to the shared context. Keeps this hook reusable as-is
-// regardless of how many chart domains share that context field.
+// LOCAL HOOK: chart lifecycle (unchanged)
 // ----------------------------------------------------
 function usePieChart(
   chartData: ChartDatum[],
@@ -208,15 +214,13 @@ function usePieChart(
 }
 
 // ----------------------------------------------------
-// COMPONENT — wires the two hooks above together, drives lotLayer's
-// filter + map zoom, and renders
+// COMPONENT
 // ----------------------------------------------------
 export default function LotChart() {
   const { selectedLocation, selectedStatus, updateStatus } = useContext(MyContext);
+  const { activeStatusField, activeHandedOverField, activeNotYetField } =
+    useTimeSliderContext();
 
-  // Only treat the shared selection as "ours" when it's tagged source:
-  // "lot" — a selection from ISF (or later, Structure) means no lot
-  // slice is currently active.
   const lotSelectedCode =
     selectedStatus?.source === "lot" ? (selectedStatus.code as number) : null;
 
@@ -224,19 +228,16 @@ export default function LotChart() {
     updateStatus(code === null ? null : { source: "lot", code });
   };
 
-  const { data, isLoading, isError } = useLotData(selectedLocation);
+  const { data, isLoading, isError } = useLotData(
+    selectedLocation,
+    activeStatusField,
+    activeHandedOverField,
+    activeNotYetField,
+  );
   const chartData = data?.chartData ?? [];
 
   usePieChart(chartData, lotSelectedCode, handleSliceClick);
 
-  // ----------------------------------------------------
-  // EFFECT: filter lotLayer and drive map zoom whenever the shared
-  // location or status selection changes. Only zooms when no status is
-  // selected yet, or when the active selection belongs to this chart
-  // (source === "lot") — mirrors the old MapDisplay EFFECT 2, just
-  // scoped to this layer so lot filtering/zooming lives next to the
-  // chart that triggers it.
-  // ----------------------------------------------------
   useEffect(() => {
     const { packageName, type, station } = selectedLocation;
     const shouldZoom = selectedStatus === null || selectedStatus.source === "lot";
@@ -247,13 +248,13 @@ export default function LotChart() {
       type,
       station,
       lotSelectedCode,
-      lotStatusField,
+      activeStatusField,
     ).then((extent) => {
       if (extent && mapView.current && shouldZoom) {
         mapView.current.goTo(extent);
       }
     });
-  }, [selectedLocation, selectedStatus, lotSelectedCode]);
+  }, [selectedLocation, selectedStatus, lotSelectedCode, activeStatusField]);
 
   const totalNumber = data?.totalNumber ?? 0;
   const publicNumber = data?.publicNumber ?? 0;

@@ -9,6 +9,8 @@ import type { ArcgisMap } from "@arcgis/map-components/dist/components/arcgis-ma
 import type MapView from "@arcgis/core/views/MapView";
 
 import { lotLayer, alignmentLayer, stationLayer, structureLayer, ISFLayer } from "../layers";
+import { useTimeSliderContext } from "../contexts/TimeSliderContext";
+import TimeSlider from "./TimeSlider";
 
 // Module-level (not a React ref) so LotChart/ISFChart can import it and
 // call goTo() directly, without threading the view through context.
@@ -17,6 +19,8 @@ export const mapView: { current: MapView | null } = { current: null };
 export default function MapDisplay() {
   const mapRef = useRef<ArcgisMap | null>(null);
   const viewRef = useRef<MapView | null>(null);
+
+  const { showTimeSlider } = useTimeSliderContext();
 
   // ----------------------------------------------------
   // EFFECT 1: One-time map setup.
@@ -54,6 +58,7 @@ export default function MapDisplay() {
       zoom={12}
     >
       <arcgis-compass slot="top-right" />
+      {showTimeSlider && <TimeSlider />}
     </arcgis-map>
   );
 }

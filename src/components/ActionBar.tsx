@@ -5,9 +5,12 @@ import "@esri/calcite-components/components/calcite-panel";
 import "@arcgis/map-components/components/arcgis-basemap-gallery";
 import "@arcgis/map-components/components/arcgis-layer-list";
 import { useEffect, useRef, useState } from "react";
+import { useTimeSliderContext } from "../contexts/TimeSliderContext";
 
-// Which panel is currently open, or null if none
-type ActivePanel = "basemap" | "layers" | null;
+// Which side panel is currently open, or null if none. Time slider is
+// handled separately below since it overlays the map instead of opening
+// a side panel.
+type ActivePanel = "basemap" | "layers" | "description" | null;
 
 export default function ActionBar() {
   // Action bar starts collapsed (icon-only).
@@ -21,6 +24,10 @@ export default function ActionBar() {
   // and arcgis-layer-list don't do any setup work until the user actually
   // asks for them.
   const [visitedPanels, setVisitedPanels] = useState<Set<string>>(new Set());
+
+  // Time slider lives on the map itself (see MapDisplay), not in a side
+  // panel — this just flips the shared toggle.
+  const { showTimeSlider, toggleTimeSlider } = useTimeSliderContext();
 
   // Ref to the LayerList so we can configure its per-item legend panel
   // imperatively. `listItemCreatedFunction` is a JS callback (not a plain
@@ -71,6 +78,20 @@ export default function ActionBar() {
           active={activePanel === "layers"}
           onClick={() => togglePanel("layers")}
         ></calcite-action>
+
+        <calcite-action
+          icon="clock"
+          text="Time Slider"
+          active={showTimeSlider}
+          onClick={toggleTimeSlider}
+        ></calcite-action>
+
+        <calcite-action
+          icon="information"
+          text="Description"
+          active={activePanel === "description"}
+          onClick={() => togglePanel("description")}
+        ></calcite-action>
       </calcite-action-bar>
 
       {/* Basemap panel — only mounted after first visit. Visibility is
@@ -115,6 +136,45 @@ export default function ActionBar() {
               ref={layerListRef}
               referenceElement="mmsp-map"
             ></arcgis-layer-list>
+          </div>
+        </calcite-panel>
+      )}
+
+      {/* Description panel — static content, no ArcGIS widget involved,
+          so there's no setup work to gain from lazy-mounting, but it
+          still follows the same visitedPanels pattern for consistency. */}
+      {visitedPanels.has("description") && (
+        <calcite-panel
+          heading="Description"
+          style={{ display: activePanel === "description" ? "block" : "none" }}
+        >
+          <calcite-action
+            slot="header-actions-end"
+            icon="x"
+            text="Close"
+            onClick={() => setActivePanel(null)}
+          ></calcite-action>
+          <div
+            style={{
+              overflowY: "auto",
+              overflowX: "hidden",
+              maxHeight: "calc(100vh - 120px)",
+              padding: "12px 16px",
+              color: "white",
+              lineHeight: 1.6,
+            }}
+          >
+            <p>This smart map shows the progress on the following:</p>
+            <ul>
+              <li>Land Acquisition</li>
+              <li>Structures</li>
+              <li>ISF (Informal Settlers Families)</li>
+              <li>Lots under Expropriation</li>
+            </ul>
+            <p>
+              The source of data: Master List tables provided by the Social
+              &amp; Environmental Team.
+            </p>
           </div>
         </calcite-panel>
       )}

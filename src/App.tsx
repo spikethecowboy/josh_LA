@@ -11,6 +11,7 @@ import SidePanel from "./components/SidePanel";
 import ActionBar from "./components/ActionBar";
 
 import { MyContext, type SelectedLocation, type StatusSelection } from "./contexts/MyContext";
+import { TimeSliderProvider } from "./contexts/TimeSliderContext";
 
 // ----------------------------------------------------
 // Created once outside the component so it's never recreated on re-renders
@@ -65,9 +66,11 @@ export default function App() {
         <MyContext.Provider value={contextValue}>
           <QueryClientProvider client={queryClient}>
             <Header />
-            <MapDisplay />
-            <ActionBar />
-            <SidePanel />
+            <TimeSliderProvider>
+              <MapDisplay />
+              <ActionBar />
+              <SidePanel />
+            </TimeSliderProvider>
           </QueryClientProvider>
         </MyContext.Provider>
       </calcite-shell>

@@ -189,7 +189,7 @@ export const lotLayer = new FeatureLayer({
     id: "93790e8102f84713a69e562da12bb415",
     portal: { url: "https://gis.railway-sector.com/portal" },
   },
-  outFields: ["StatusNVS3", "HandedOVer", "not_yet", "Package", "Type", "Station1", "OBJECTID", "OWNER", "Id"],
+  outFields: ["StatusNVS3", "HandedOVer", "not_yet", "Package", "Type", "Station1", "OBJECTID", "OWNER", "Id", "Issue"],
   layerId: 31,
   title: "MMSP Land",
   renderer: lotLayerRenderer,

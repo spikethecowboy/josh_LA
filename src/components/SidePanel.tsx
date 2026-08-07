@@ -11,6 +11,7 @@ import LotChart from "./LotChart";
 import StructureChart from "./StructureChart.tsx";
 import ISFChart from "./ISFChart";
 import ExpropriationList from "./Expro";
+import IssueList from "./Issue";
 
 export default function SidePanel() {
   // Tracks every tab that's been opened at least once. calcite-tabs mounts
@@ -54,10 +55,10 @@ export default function SidePanel() {
       >
         {/* ----------------------------------------------------
             TAB TITLES
-            Land / ISF / ExproList — one title per <calcite-tab> below,
-            in the same order. className on each is used purely as a
-            stable identifier for handleTabChange above, matching them up
-            with the visitedTabs set.
+            Land / Structure / ISF / ExproList / Issue — one title per
+            <calcite-tab> below, in the same order. className on each is
+            used purely as a stable identifier for handleTabChange above,
+            matching them up with the visitedTabs set.
         ---------------------------------------------------- */}
         <calcite-tab-nav
           slot="title-group"
@@ -68,6 +69,7 @@ export default function SidePanel() {
           <calcite-tab-title className="structure">Structure</calcite-tab-title>
           <calcite-tab-title className="isf">ISF</calcite-tab-title>
           <calcite-tab-title className="exprolist">ExproList</calcite-tab-title>
+          <calcite-tab-title className="issue">Issue</calcite-tab-title>
         </calcite-tab-nav>
 
         {/* ----------------------------------------------------
@@ -84,6 +86,9 @@ export default function SidePanel() {
         </calcite-tab>
         <calcite-tab>
           {visitedTabs.has("exprolist") && <ExpropriationList />}
+        </calcite-tab>
+        <calcite-tab>
+          {visitedTabs.has("issue") && <IssueList />}
         </calcite-tab>
       </calcite-tabs>
     </>
