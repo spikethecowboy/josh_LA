@@ -14,15 +14,11 @@ import ExpropriationList from "./Expro";
 import IssueList from "./Issue";
 
 export default function SidePanel() {
-  // Tracks every tab that's been opened at least once. calcite-tabs mounts
-  // ALL tab content into the DOM immediately and just hides inactive ones
-  // via CSS — it doesn't unmount them. That's a problem for amCharts:
-  // a chart built while its container is display:none gets created with
-  // zero width/height and never recovers, even once the tab becomes
-  // visible later. Rendering a tab's content only once it's actually been
-  // opened guarantees the container has real dimensions the first time
-  // that chart is built. "land" starts visited since it's the default
-  // active tab.
+  // Every tab opened at least once. calcite-tabs mounts all tab content
+  // immediately and just hides inactive ones via CSS — building an
+  // amCharts chart while its container is display:none gives it zero
+  // size, permanently. Rendering a tab's content only after its first
+  // visit avoids that. "land" starts visited since it's the default tab.
   const [visitedTabs, setVisitedTabs] = useState<Set<string>>(
     new Set(["land"]),
   );
@@ -55,10 +51,8 @@ export default function SidePanel() {
       >
         {/* ----------------------------------------------------
             TAB TITLES
-            Land / Structure / ISF / ExproList / Issue — one title per
-            <calcite-tab> below, in the same order. className on each is
-            used purely as a stable identifier for handleTabChange above,
-            matching them up with the visitedTabs set.
+            One title per <calcite-tab> below, same order. className is
+            a stable id for handleTabChange, matched against visitedTabs.
         ---------------------------------------------------- */}
         <calcite-tab-nav
           slot="title-group"

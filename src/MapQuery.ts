@@ -2,9 +2,9 @@ import type FeatureLayer from "@arcgis/core/layers/FeatureLayer";
 import type Extent from "@arcgis/core/geometry/Extent";
 
 // ----------------------------------------------------
-// Builds a single where-clause combining location (package/type/station)
-// and status into one SQL expression. Returns "1=1" if nothing meaningful
-// is selected (i.e. show everything, no filter).
+// Builds a where-clause combining location (package/type/station) and
+// status into one SQL expression. Returns "1=1" (show everything) if
+// nothing is selected.
 // ----------------------------------------------------
 export function buildWhereClause(
   packageName: string | null,
@@ -19,8 +19,8 @@ export function buildWhereClause(
   if (type) clauses.push(`Type = '${type}'`);
   if (station) clauses.push(`Station1 = '${station}'`);
   if (status !== null) {
-    // Numeric statuses (Lot) go in unquoted; string statuses (ISF) need
-    // quotes or the SQL treats the value as a bare column/identifier.
+    // Numeric (Lot) unquoted; string (ISF) quoted, or SQL reads it as
+    // a bare identifier
     const statusLiteral = typeof status === "string" ? `'${status}'` : status;
     clauses.push(`${statusField} = ${statusLiteral}`);
   }
@@ -29,11 +29,9 @@ export function buildWhereClause(
 }
 
 // ----------------------------------------------------
-// Filters lotLayer based on the current selection, and returns the extent
-// to zoom to (or null if nothing is selected / nothing to zoom to).
-//
-// No longer touches the MapView at all — purely data/query concerns.
-// The caller (MapDisplay.tsx) decides what to do with the returned extent.
+// Filters a layer by the current selection and returns the extent to
+// zoom to (or null). Data/query only — doesn't touch MapView; the
+// caller (MapDisplay.tsx) decides what to do with the extent.
 // ----------------------------------------------------
 export async function filterAndGetTargetExtent(
   layer: FeatureLayer,
@@ -47,7 +45,6 @@ export async function filterAndGetTargetExtent(
 
   layer.definitionExpression = whereExpression;
 
-  // Nothing meaningful selected — show everything, but don't zoom anywhere.
   // if (whereExpression === "1=1") return null;
 
   const result = await layer.queryExtent({ where: whereExpression });

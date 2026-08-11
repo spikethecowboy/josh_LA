@@ -1,6 +1,6 @@
-import { useContext, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { MyContext, type SelectedLocation } from "../contexts/MyContext";
+import { useMyContext, type SelectedLocation } from "../contexts/MyContext";
 import { fieldStatistic, pieChartStatusData } from "../Query";
 import * as am5 from "@amcharts/amcharts5";
 import * as am5percent from "@amcharts/amcharts5/percent";
@@ -22,8 +22,8 @@ type ChartDatum = { category: string; value: number; color: string; code: number
 
 // ----------------------------------------------------
 // LOCAL HOOK: data fetching
-// Same shape as LotChart's/ISFChart's data hooks — filters by the shared
-// selectedLocation (Package/Type/Station) via QueryExpressionLayers.
+// Same shape as LotChart's/ISFChart's — filters by the shared
+// selectedLocation (Package/Type/Station).
 // ----------------------------------------------------
 function useStructureData({ packageName, type, station }: SelectedLocation) {
   return useQuery({
@@ -58,6 +58,8 @@ function useStructureData({ packageName, type, station }: SelectedLocation) {
   });
 }
 
+// Disposes any previous chart root under this id, so re-mounting
+// doesn't leave a duplicate amCharts instance behind
 function maybeDisposeRoot(divId: string) {
   am5.array.each(am5.registry.rootElements, function (root) {
     if (root.dom.id === divId) {
@@ -68,9 +70,10 @@ function maybeDisposeRoot(divId: string) {
 
 // ----------------------------------------------------
 // LOCAL HOOK: chart lifecycle
-// Same amCharts setup/lifecycle as LotChart's/ISFChart's usePieChart.
-// Deals purely in plain `number | null` codes — the tagging (source:
-// "structure") happens one level up, in the component.
+// Same amCharts setup as LotChart's/ISFChart's usePieChart, plus a
+// hatch pattern per status so slices stay distinguishable in grayscale
+// prints. Deals in plain `number | null` codes — the "structure"
+// tagging happens one level up, in the component.
 // ----------------------------------------------------
 function usePieChart(
   chartData: ChartDatum[],
@@ -81,6 +84,8 @@ function usePieChart(
   const legendRef = useRef<any>({});
   const patternByCodeRef = useRef<Map<number | string, any>>(new Map());
 
+  // Lets the click handler read the latest selectedCode without needing
+  // to be in its own dependency array
   const selectedCodeRef = useRef<number | null>(selectedCode);
   useEffect(() => {
     selectedCodeRef.current = selectedCode;
@@ -99,9 +104,9 @@ function usePieChart(
       am5percent.PieChart.new(root, { layout: root.verticalLayout }),
     );
 
-    // amCharts paints its own background rectangle by default — make it
-    // fully transparent so the app's dark background shows through
-    // (including inside the hatch pattern's transparent gaps).
+    // amCharts paints its own background by default — make it
+    // transparent so the app's dark background shows through, including
+    // inside the hatch pattern's gaps
     chart.set(
       "background",
       am5.Rectangle.new(root, { fillOpacity: 0, strokeOpacity: 0 }),
@@ -120,17 +125,11 @@ function usePieChart(
     );
     pieSeriesRef.current = pieSeries;
 
-    // Build one LinePattern per status color up front (colors are static,
-    // from structureStatuses) and attach via templateField below — more
-    // reliable than computing fillPattern through an adapter, which
-    // amCharts doesn't consistently honor for pattern paints.
-    //
-    // width/height are set explicitly (100x100) because amCharts' default
-    // pattern tile is 50x50, and per their own docs, rotated line patterns
-    // "might not tile nicely" at that default size — that mismatch is
-    // exactly what produces visible rectangular seams across the hatch.
-    // A larger tile avoids the seams; tune up/down if the stripes look
-    // too sparse or seams still show at your slice size.
+    // One LinePattern per status color, built once (colors are static)
+    // and attached via templateField below — more reliable than an
+    // adapter, which amCharts doesn't consistently honor for patterns.
+    // Tile size is 10x10 (amCharts' default 50x50 tiles rotated lines
+    // poorly, causing visible seams) — tune if stripes look off.
     const patternByCode = new Map<number | string, any>();
     structureStatuses.forEach(({ code, color }) => {
       patternByCode.set(
@@ -149,11 +148,8 @@ function usePieChart(
     });
     patternByCodeRef.current = patternByCode;
 
-    // Per-category outline: same white stroke for every slice, keeping
-    // the hatch/legend swatch as the visual cue for category identity.
-    // fillOpacity: 0 keeps the gaps between hatch lines fully
-    // transparent — a clean "just the diagonal hatch" look rather than
-    // solid color with stripes on top.
+    // White outline on every slice; fillOpacity: 0 keeps the hatch gaps
+    // transparent instead of solid color showing through
     pieSeries.data.setAll(
       chartData.map((d) => ({
         ...d,
@@ -212,6 +208,8 @@ function usePieChart(
     };
   }, []);
 
+  // Re-applies hatch patterns and pushes new data in on every chartData
+  // change, instead of rebuilding the whole chart
   useEffect(() => {
     const mapped = chartData.map((d) => ({
       ...d,
@@ -230,15 +228,14 @@ function usePieChart(
 }
 
 // ----------------------------------------------------
-// COMPONENT — wires the two hooks together, drives structureLayer's
-// filter + map zoom, and renders
+// COMPONENT
+// Wires the two hooks together, drives structureLayer's filter + map
+// zoom, and renders.
 // ----------------------------------------------------
 export default function StructureChart() {
-  const { selectedLocation, selectedStatus, updateStatus } = useContext(MyContext);
+  const { selectedLocation, selectedStatus, updateStatus } = useMyContext();
 
-  // Only treat the shared selection as "ours" when it's tagged source:
-  // "structure" — a selection from Lot or ISF means no structure slice
-  // is currently active.
+  // Only treat the selection as "ours" if it's tagged source: "structure"
   const structureSelectedCode =
     selectedStatus?.source === "structure" ? (selectedStatus.code as number) : null;
 
@@ -251,12 +248,8 @@ export default function StructureChart() {
 
   usePieChart(chartData, structureSelectedCode, handleSliceClick);
 
-  // ----------------------------------------------------
-  // EFFECT: filter structureLayer and drive map zoom whenever the shared
-  // location or status selection changes. Only zooms when the active
-  // selection belongs to this chart (source === "structure") — mirrors
-  // LotChart's/ISFChart's effect, scoped to this layer.
-  // ----------------------------------------------------
+  // Filters structureLayer and zooms the map — only zooms when the
+  // active selection belongs to this chart
   useEffect(() => {
     const { packageName, type, station } = selectedLocation;
     const shouldZoom = selectedStatus?.source === "structure";

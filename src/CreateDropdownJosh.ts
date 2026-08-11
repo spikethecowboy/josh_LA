@@ -3,22 +3,19 @@ import FeatureLayer from "@arcgis/core/layers/FeatureLayer";
 type Row = Record<string, any>;
 
 /**
- * Builds nested dropdown data (1-3 levels) from one or two ArcGIS FeatureLayers.
+ * Builds nested dropdown data (1-3 levels) from one or two FeatureLayers.
  *
- * Output shapes (matches the original implementation exactly):
+ * Output shape:
  *  - 1 field:  [{ field1 }, ...]
- *  - 2 fields: [{ field1, field2: [{ name }, ...] }, ...]
- *  - 3 fields: [{ field1, field2: [{ name, field3: [{ name }, ...] }, ...] }, ...]
+ *  - 2 fields: [{ field1, field2: [{ name }] }, ...]
+ *  - 3 fields: [{ field1, field2: [{ name, field3: [{ name }] }] }, ...]
  */
 class GenerateDropdownData {
   featureLayers: FeatureLayer[];
   fieldNames: string[];
 
-  // Session-level cache: identical (layer, fields) requests are served
-  // from memory instead of re-querying the server. Dropdown reference
-  // data like Package/Type/Station rarely changes within a session, so
-  // there's no need to pay for the network round-trip more than once.
-  // Keyed by layer URL + field list so different dropdowns don't collide.
+  // Caches results by layer + fields, so repeat dropdowns (Package/Type/
+  // Station rarely changes mid-session) skip the network round-trip.
   private static cache = new Map<string, Promise<Row[]>>();
 
   constructor(
@@ -29,9 +26,8 @@ class GenerateDropdownData {
     this.fieldNames = (fieldNames as any[]).filter((f) => f !== undefined);
   }
 
-  // Query one layer, grouped/ordered by the active fields, and normalize
-  // each distinct combination into { field1, field2, field3 } (only the
-  // keys that are actually in use are populated).
+  // Queries one layer for distinct field1/field2/field3 combinations,
+  // using the cache above when possible.
   private async queryDistinctRows(layer: FeatureLayer): Promise<Row[]> {
     const cacheKey = `${layer.url}::${this.fieldNames.join(",")}`;
     const cached = GenerateDropdownData.cache.get(cacheKey);
@@ -40,8 +36,8 @@ class GenerateDropdownData {
     const promise = this.runQuery(layer);
     GenerateDropdownData.cache.set(cacheKey, promise);
 
-    // Don't let a failed request "poison" the cache forever — remove it
-    // so the next attempt actually retries instead of rethrowing.
+    // Evict on failure so a retry actually re-queries, instead of
+    // rethrowing the same failed promise forever
     promise.catch(() => GenerateDropdownData.cache.delete(cacheKey));
 
     return promise;
@@ -52,8 +48,8 @@ class GenerateDropdownData {
     query.outFields = this.fieldNames;
     query.orderByFields = this.fieldNames;
     query.groupByFieldsForStatistics = this.fieldNames;
-    query.returnGeometry = false; // attributes only — geometry is never used here
-    query.cacheHint = true; // lets the server cache this exact grouped query
+    query.returnGeometry = false; // attributes only
+    query.cacheHint = true; // lets the server cache this exact query
 
     const response = await layer.queryFeatures(query);
 
@@ -66,8 +62,8 @@ class GenerateDropdownData {
     });
   }
 
-  // Remove duplicate combinations (needed once rows from multiple layers
-  // are combined, since the same combination could appear in both).
+  // Removes duplicate combinations — needed once rows from multiple
+  // layers are merged, since the same combination could appear in both
   private dedupeRows(rows: Row[]): Row[] {
     const seen = new Set<string>();
     return rows.filter((row) => {
@@ -78,7 +74,7 @@ class GenerateDropdownData {
     });
   }
 
-  // Recursively group rows into the nested shape, one level per field.
+  // Recursively groups rows into the nested shape, one level per field:
   // depth 0 -> { field1, field2: [...] }
   // depth 1 -> { name,   field3: [...] }
   // depth 2 -> { name }

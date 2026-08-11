@@ -12,9 +12,9 @@ import "@esri/calcite-components/components/calcite-action-bar";
 import type { ArcgisMap } from "@arcgis/map-components/dist/components/arcgis-map";
 import "../index.css";
 import { useQuery } from "@tanstack/react-query";
-import { useContext, useMemo } from "react";
+import { useMemo } from "react";
 import type FeatureLayer from "@arcgis/core/layers/FeatureLayer";
-import { MyContext } from "../contexts/MyContext";
+import { useMyContext } from "../contexts/MyContext";
 import QueryExpressionLayers from "../CreateQueryJosh";
 
 interface QueryFeaturesType {
@@ -31,13 +31,17 @@ async function queryFeatures({ layer, queryc }: QueryFeaturesType) {
   return await layer?.queryFeatures(query);
 }
 
-//--- Highlight & zoom into clicked land
-// Module-level so it persists across renders/clicks without needing state
-// (mirrors the highlighted feature, not something the UI displays directly).
+// ----------------------------------------------------
+// HIGHLIGHT & ZOOM
+// Clicking a list item zooms the map to that lot and highlights it.
+// ----------------------------------------------------
+
+// Module-level so it persists across renders/clicks without needing
+// state (mirrors the highlighted feature, not something the UI shows)
 let highlightSelect: any;
 
 async function resultClickHandler(event: any) {
-  // Matches MapDisplay.tsx's <arcgis-map id="mmsp-map">, not a 3D scene.
+  // Matches MapDisplay.tsx's <arcgis-map id="mmsp-map">, not a 3D scene
   const arcgisMap = document.querySelector("#mmsp-map") as ArcgisMap;
   if (!arcgisMap?.view) return;
 
@@ -55,23 +59,28 @@ async function resultClickHandler(event: any) {
 
   const layerView = await arcgisMap.view.whenLayerView(lotLayer);
 
-  // Remove any previous highlight before applying a new one.
+  // Remove any previous highlight before applying a new one
   highlightSelect?.remove();
   highlightSelect = layerView.highlight([event.target.value]);
 
-  // Clicking elsewhere on the map clears the highlight/filter.
+  // Clicking elsewhere on the map clears the highlight
   arcgisMap.view.on("click", () => {
     layerView.filter = null;
     highlightSelect?.remove();
   });
 }
 
+// ----------------------------------------------------
+// COMPONENT
+// Lists lots that have a non-null Issue value, filtered by the shared
+// selectedLocation. Unlike Expro (a specific status code), this just
+// checks whether Issue is populated at all.
+// ----------------------------------------------------
+
 const IssueList = () => {
-  const { selectedLocation } = useContext(MyContext);
+  const { selectedLocation } = useMyContext();
   const { packageName, type, station } = selectedLocation;
 
-  // Unlike Expro (which filters by a specific status code), Issue just
-  // checks whether the Issue field is populated at all.
   const querycIssue = new QueryExpressionLayers({
     qFields: ["Package", "Type", "Station1"],
     qValues: [packageName, type, station],
@@ -90,6 +99,7 @@ const IssueList = () => {
     },
   });
 
+  // De-duplicates by OBJECTID and reshapes into what the list needs
   const uniqueIssueItems = useMemo(() => {
     if (!data) return [];
 

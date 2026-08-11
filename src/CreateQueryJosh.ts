@@ -11,10 +11,9 @@ interface QueryExpressionOptions {
 }
 
 // ----------------------------------------------------
-// Builds a SQL where-clause string from a mix of optional filters
-// (cascading package/type/station values, status, chart category, and
-// raw extra expressions). Used to feed both layer.definitionExpression
-// and Query.where.
+// Builds a SQL where-clause from a mix of optional filters (cascading
+// package/type/station, status, chart category, raw expressions). Feeds
+// both layer.definitionExpression and Query.where.
 // ----------------------------------------------------
 class QueryExpressionLayers {
   qValues?: [any?, any?, any?];
@@ -43,17 +42,17 @@ class QueryExpressionLayers {
   // HELPERS
   // ----------------------------------------------------
 
-  // Formats a single field = value clause, quoting strings
+  // Formats one field = value clause, quoting strings (numbers unquoted)
   private buildClause(field: any, value: any): string {
     return typeof value === "number"
-      ? `${field} = ${value}`            // e.g. `StatusNVS3 = 1`
-      : `${field} = '${value}'`;         // e.g. `Package = 'CP101'`
+      ? `${field} = ${value}`
+      : `${field} = '${value}'`;
   }
 
-  // Joins non-empty clauses with AND
+  // Joins non-empty clauses with AND; falls back to "1=1" if none
   private joinClauses(clauses: (string | undefined | null | false)[]): string {
-    const valid = clauses.filter(Boolean) as string[];         // Filter out falsy values (undefined, null, false, empty string)
-    return valid.length ? valid.join(" AND ") : "1=1";         // e.g. ["Package = 'CP101'", "Type = 'subterranean'"] => "Package = 'CP101' AND Type = 'subterranean'"
+    const valid = clauses.filter(Boolean) as string[];
+    return valid.length ? valid.join(" AND ") : "1=1";
   }
 
   // ----------------------------------------------------
@@ -62,7 +61,7 @@ class QueryExpressionLayers {
   queryExpression = (): string => {
     const clauses: (string | undefined | null | false)[] = [];
 
-    // 1. qValues — include only the values that are set (cascade: stop at first missing)
+    // qValues — cascade: stop at the first missing value
     if (this.qValues?.[0]) {
       clauses.push(this.buildClause(this.qFields![0], this.qValues[0]));
 
@@ -75,17 +74,17 @@ class QueryExpressionLayers {
       }
     }
 
-    // 2. Status field
+    // Status field
     if (this.statusField && this.status != null) {
       clauses.push(`${this.statusField} = ${this.status}`);
     }
 
-    // 3. Chart category field
+    // Chart category field
     if (this.chartCategoryField && this.chartCategory != null) {
       clauses.push(this.buildClause(this.chartCategoryField, this.chartCategory));
     }
 
-    // 4. Extra expressions
+    // Extra expressions
     if (this.qExpression) {
       clauses.push(this.qExpression);
     }

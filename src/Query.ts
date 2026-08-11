@@ -1,7 +1,8 @@
 import StatisticDefinition from "@arcgis/core/rest/support/StatisticDefinition";
 import Query from "@arcgis/core/rest/support/Query";
 
-// where-clause is built by the caller (QueryExpressionLayers) — this file just runs the query
+// Builds a base Query — where-clause comes from the caller
+// (QueryExpressionLayers), this just wires it up to run
 function createQuery(where?: string) {
   const query = new Query();
   query.where = where ?? "1=1";
@@ -24,7 +25,12 @@ type StatisticType =
   | "envelope-aggregate"
   | "convex-hull-aggregate";
 
-// Generic single-number stat (total, public, handed-over, etc). Fire multiple via Promise.all.
+// ----------------------------------------------------
+// FIELD STATISTIC
+// One number for a single stat (total, public, handed-over, etc).
+// Fire several in parallel via Promise.all for a chart's summary row.
+// ----------------------------------------------------
+
 type FieldStatisticArgs = {
   where?: string;
   layer: any;
@@ -53,10 +59,13 @@ export async function fieldStatistic({
   return response.features[0]?.attributes[OUT_FIELD] ?? 0;
 }
 
-// Per-status breakdown for the pie chart. `where` must already include any
-// caller-side filtering (e.g. "private lots only" for LotChart).
-// `code` accepts string | number so this one function serves both numeric
-// status codes (lotStatuses) and text-based ones (isfStatuses).
+// ----------------------------------------------------
+// PIE CHART STATUS DATA
+// Per-status breakdown for a pie chart. `where` must already include
+// any caller-side filtering. `code` is string | number so this serves
+// both numeric (lotStatuses) and text-based (isfStatuses) status lists.
+// ----------------------------------------------------
+
 type PieChartStatusDataArgs = {
   where?: string;
   layer: any;
@@ -88,7 +97,8 @@ export async function pieChartStatusData({
 
   const statusResponse = await layer.queryFeatures(statusQuery);
 
-  // attach each status's color/code from statusList so the chart can bind slice fill + click handling directly
+  // Attaches each status's color from statusList, so the chart can bind
+  // slice fill + click handling directly
   return statusList.map(
     ({
       code,

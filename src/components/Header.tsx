@@ -10,12 +10,8 @@ function formatToday() {
   });
 }
 
-// ----------------------------------------------------
-// STYLES
-// Static — don't depend on any props/state, so defined once outside the
-// component instead of being recreated every render.
-// ----------------------------------------------------
-
+// Static styles — defined once outside the component so they aren't
+// recreated on every render.
 const styles = {
   header: {
     display: "grid",
@@ -41,11 +37,10 @@ const styles = {
 } as const;
 
 export default function Header() {
-  // Initialized with formatToday() so the date is correct on first render.
+  // Start with today's date already correct (no blank flash on first render)
   const [today, setToday] = useState(formatToday);
 
-  // Re-check once a minute in case the date has rolled over
-  // while the page has been left open.
+  // Refresh once a minute, so the date updates if left open past midnight
   useEffect(() => {
     const interval = setInterval(() => {
       setToday(formatToday());
@@ -55,15 +50,12 @@ export default function Header() {
   }, []);
 
   return (
-    // 3-column grid: title (left) | Dropdown (center) | date (right)
+    // 3-column layout: title (left) | Dropdown (center) | date (right)
     <header slot="header" style={styles.header}>
-      {/* Left: app title */}
       <span style={styles.title}>MMSP Land</span>
 
-      {/* Center: package/type/station selector */}
       <Dropdown />
 
-      {/* Right: live-updating current date */}
       <span style={styles.date}>{today}</span>
     </header>
   );

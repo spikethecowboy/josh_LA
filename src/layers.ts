@@ -241,7 +241,6 @@ export const structureLayer = new FeatureLayer({
   visible: false,
 });
 
-
 export const ISFLayer = new FeatureLayer({
   portalItem: {
     id: "0c172b82ddab44f2bb439542dd75e8ae",

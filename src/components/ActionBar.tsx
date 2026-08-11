@@ -5,33 +5,41 @@ import "@esri/calcite-components/components/calcite-panel";
 import "@arcgis/map-components/components/arcgis-basemap-gallery";
 import "@arcgis/map-components/components/arcgis-layer-list";
 import { useEffect, useRef, useState } from "react";
-import { useTimeSliderContext } from "../contexts/TimeSliderContext";
+import { useTimeSliderToggle } from "../contexts/TimeSliderContext";
 
-// Which side panel is currently open, or null if none. Time slider is
-// handled separately below since it overlays the map instead of opening
-// a side panel.
+// ----------------------------------------------------
+// TYPES
+// Which side panel is open, or null if none. Time slider is separate —
+// it overlays the map instead of opening a panel.
+// ----------------------------------------------------
+
 type ActivePanel = "basemap" | "layers" | "description" | null;
 
 export default function ActionBar() {
-  // Action bar starts collapsed (icon-only).
+  // ----------------------------------------------------
+  // STATE
+  // ----------------------------------------------------
+
+  // Action bar starts collapsed (icon-only)
   const [barExpanded, setBarExpanded] = useState(false);
 
-  // Tracks which panel is open. null = all closed.
+  // Which panel is open. null = all closed.
   const [activePanel, setActivePanel] = useState<ActivePanel>(null);
 
-  // Tracks every panel that's been opened at least once. Panels are only
-  // rendered into the DOM after their first visit, so arcgis-basemap-gallery
-  // and arcgis-layer-list don't do any setup work until the user actually
-  // asks for them.
+  // Every panel opened at least once — panels below only mount after
+  // their first visit (see PANELS section)
   const [visitedPanels, setVisitedPanels] = useState<Set<string>>(new Set());
 
-  // Time slider lives on the map itself (see MapDisplay), not in a side
-  // panel — this just flips the shared toggle.
-  const { showTimeSlider, toggleTimeSlider } = useTimeSliderContext();
+  // Slider overlay lives on the map itself (see MapDisplay) — this just
+  // flips the shared toggle
+  const { showTimeSlider, toggleTimeSlider } = useTimeSliderToggle();
 
-  // Ref to the LayerList so we can configure its per-item legend panel
-  // imperatively. `listItemCreatedFunction` is a JS callback (not a plain
-  // attribute value), so it has to be set as a DOM property via ref.
+  // ----------------------------------------------------
+  // LAYER LIST SETUP
+  // listItemCreatedFunction is a JS callback, so it has to be set as a
+  // DOM property via ref rather than a plain JSX attribute.
+  // ----------------------------------------------------
+
   const layerListRef = useRef<HTMLArcgisLayerListElement>(null);
 
   useEffect(() => {
@@ -44,14 +52,25 @@ export default function ActionBar() {
         open: true,
       };
     };
-    // Re-run once the layers panel actually mounts (first visit), since
-    // layerListRef.current is null until then.
+    // Re-runs once the layers panel first mounts, since layerListRef is
+    // null before that
   }, [visitedPanels]);
+
+  // ----------------------------------------------------
+  // PANEL TOGGLE
+  // Opening a panel also marks it visited, so PANELS below knows to
+  // mount it (once) and keep it mounted from then on.
+  // ----------------------------------------------------
 
   const togglePanel = (panel: ActivePanel) => {
     setActivePanel((prev) => (prev === panel ? null : panel));
     setVisitedPanels((prev) => new Set(prev).add(panel as string));
   };
+
+  // ----------------------------------------------------
+  // UI
+  // Action bar with 4 actions, one panel per action below it.
+  // ----------------------------------------------------
 
   return (
     <calcite-shell-panel
@@ -94,12 +113,18 @@ export default function ActionBar() {
         ></calcite-action>
       </calcite-action-bar>
 
-      {/* Basemap panel — only mounted after first visit. Visibility is
-          driven entirely by `activePanel` + the display style below;
-          the close button just calls setActivePanel(null) directly
-          instead of using calcite-panel's own `closable`/internal closed
-          state, which doesn't reset itself when the panel is reopened
-          from the action bar. */}
+      {/* ----------------------------------------------------
+          PANELS
+          Each panel mounts once (first visit), then stays mounted —
+          visibility toggles with display: none/block instead of
+          unmounting, so switching back to a panel keeps its state
+          (e.g. gallery scroll position). Close button calls
+          setActivePanel(null) directly rather than relying on
+          calcite-panel's own closable state, which doesn't reset when
+          the panel is reopened from the action bar.
+      ---------------------------------------------------- */}
+
+      {/* Basemap */}
       {visitedPanels.has("basemap") && (
         <calcite-panel
           heading="Basemap"
@@ -117,9 +142,8 @@ export default function ActionBar() {
         </calcite-panel>
       )}
 
-      {/* Layers panel — arcgis-layer-list gives us the checkbox, title,
-          and per-layer expandable legend panel in one built-in widget.
-          Only mounted after first visit. */}
+      {/* Layers — arcgis-layer-list bundles checkbox, title, and
+          per-layer legend into one widget */}
       {visitedPanels.has("layers") && (
         <calcite-panel
           heading="Layers"
@@ -140,9 +164,8 @@ export default function ActionBar() {
         </calcite-panel>
       )}
 
-      {/* Description panel — static content, no ArcGIS widget involved,
-          so there's no setup work to gain from lazy-mounting, but it
-          still follows the same visitedPanels pattern for consistency. */}
+      {/* Description — static text, no ArcGIS widget involved, but kept
+          on the same visitedPanels pattern for consistency */}
       {visitedPanels.has("description") && (
         <calcite-panel
           heading="Description"

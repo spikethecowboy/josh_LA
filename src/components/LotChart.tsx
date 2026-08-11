@@ -1,7 +1,7 @@
-import { useContext, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { MyContext, type SelectedLocation } from "../contexts/MyContext";
-import { useTimeSliderContext } from "../contexts/TimeSliderContext";
+import { useMyContext, type SelectedLocation } from "../contexts/MyContext";
+import { useActiveDateFields } from "../contexts/TimeSliderContext";
 import { fieldStatistic, pieChartStatusData } from "../Query";
 import * as am5 from "@amcharts/amcharts5";
 import * as am5percent from "@amcharts/amcharts5/percent";
@@ -22,9 +22,8 @@ type ChartDatum = { category: string; value: number; color: string; code: number
 
 // ----------------------------------------------------
 // LOCAL HOOK: data fetching
-// All three "active" fields (status/handedOver/notYet) come from
-// TimeSliderContext — they're the date-specific NVS/JV/NY fields while
-// the slider is on, or the defaults (StatusNVS3/HandedOVer/not_yet)
+// statusField/handedOverField/notYetField come from TimeSliderContext —
+// a date's NVS/JV/NY fields while the slider is on, or the defaults
 // while it's off.
 // ----------------------------------------------------
 function useLotData(
@@ -103,6 +102,8 @@ function useLotData(
   });
 }
 
+// Disposes any previous chart root under this id, so re-mounting
+// doesn't leave a duplicate amCharts instance behind
 function maybeDisposeRoot(divId: string) {
   am5.array.each(am5.registry.rootElements, function (root) {
     if (root.dom.id === divId) {
@@ -112,7 +113,9 @@ function maybeDisposeRoot(divId: string) {
 }
 
 // ----------------------------------------------------
-// LOCAL HOOK: chart lifecycle (unchanged)
+// LOCAL HOOK: chart lifecycle
+// Builds the amCharts pie chart once on mount, disposes on unmount,
+// and pumps new chartData in without rebuilding.
 // ----------------------------------------------------
 function usePieChart(
   chartData: ChartDatum[],
@@ -122,6 +125,8 @@ function usePieChart(
   const pieSeriesRef = useRef<any>({});
   const legendRef = useRef<any>({});
 
+  // Lets the click handler below read the latest selectedCode without
+  // needing to be in its own dependency array
   const selectedCodeRef = useRef<number | string | null>(selectedCode);
   useEffect(() => {
     selectedCodeRef.current = selectedCode;
@@ -206,6 +211,8 @@ function usePieChart(
     };
   }, []);
 
+  // Pushes new data into the existing chart/legend on every chartData
+  // change, instead of rebuilding the whole chart
   useEffect(() => {
     pieSeriesRef.current?.data?.setAll(chartData);
     legendRef.current?.data?.setAll(pieSeriesRef.current?.dataItems);
@@ -217,10 +224,11 @@ function usePieChart(
 // COMPONENT
 // ----------------------------------------------------
 export default function LotChart() {
-  const { selectedLocation, selectedStatus, updateStatus } = useContext(MyContext);
+  const { selectedLocation, selectedStatus, updateStatus } = useMyContext();
   const { activeStatusField, activeHandedOverField, activeNotYetField } =
-    useTimeSliderContext();
+    useActiveDateFields();
 
+  // Only treat the selection as "ours" if it's tagged source: "lot"
   const lotSelectedCode =
     selectedStatus?.source === "lot" ? (selectedStatus.code as number) : null;
 
@@ -238,6 +246,8 @@ export default function LotChart() {
 
   usePieChart(chartData, lotSelectedCode, handleSliceClick);
 
+  // Filters lotLayer and zooms the map to match — only zooms if no
+  // status is selected yet, or the selection belongs to this chart
   useEffect(() => {
     const { packageName, type, station } = selectedLocation;
     const shouldZoom = selectedStatus === null || selectedStatus.source === "lot";

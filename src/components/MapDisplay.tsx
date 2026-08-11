@@ -9,7 +9,7 @@ import type { ArcgisMap } from "@arcgis/map-components/dist/components/arcgis-ma
 import type MapView from "@arcgis/core/views/MapView";
 
 import { lotLayer, alignmentLayer, stationLayer, structureLayer, ISFLayer } from "../layers";
-import { useTimeSliderContext } from "../contexts/TimeSliderContext";
+import { useTimeSliderToggle } from "../contexts/TimeSliderContext";
 import TimeSlider from "./TimeSlider";
 
 // Module-level (not a React ref) so LotChart/ISFChart can import it and
@@ -20,7 +20,7 @@ export default function MapDisplay() {
   const mapRef = useRef<ArcgisMap | null>(null);
   const viewRef = useRef<MapView | null>(null);
 
-  const { showTimeSlider } = useTimeSliderContext();
+  const { showTimeSlider } = useTimeSliderToggle();
 
   // ----------------------------------------------------
   // EFFECT 1: One-time map setup.

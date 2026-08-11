@@ -1,21 +1,21 @@
 import "./index.css";
 import "@esri/calcite-components/components/calcite-shell";
-import { useMemo, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { authenticate } from "./autho";
 
+// Components
 import Header from "./components/Header";
 import MapDisplay from "./components/MapDisplay";
 import SidePanel from "./components/SidePanel";
 import ActionBar from "./components/ActionBar";
 
-import { MyContext, type SelectedLocation, type StatusSelection } from "./contexts/MyContext";
+// Contexts
+import { MyContextProvider } from "./contexts/MyContext";
 import { TimeSliderProvider } from "./contexts/TimeSliderContext";
 
-// ----------------------------------------------------
 // Created once outside the component so it's never recreated on re-renders
-// ----------------------------------------------------
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -35,35 +35,10 @@ export default function App() {
     authenticate(setLoggedInState, "V2b9ysdMrpUBEWv4");
   }, []);
 
-  // Single source of truth for the current package/type/station selection,
-  // shared app-wide via MyContext below.
-  const [selectedLocation, setSelectedLocation] = useState<SelectedLocation>({
-    packageName: null,
-    type: null,
-    station: null,
-  });
-
-  // Tagged { source, code } of whichever chart's pie slice is currently
-  // selected (Lot, ISF, and later Structure), shared so MapDisplay can
-  // combine it with selectedLocation for map filtering/zoom.
-  const [selectedStatus, setSelectedStatus] = useState<StatusSelection>(null);
-
-  // Bundles state + updaters into one stable object so context consumers
-  // don't re-render unless something in here actually changed.
-  const contextValue = useMemo(
-    () => ({
-      selectedLocation,
-      updateLocation: setSelectedLocation,
-      selectedStatus,
-      updateStatus: setSelectedStatus,
-    }),
-    [selectedLocation, selectedStatus]
-  );
-
   return (
     loggedInState && (
       <calcite-shell>
-        <MyContext.Provider value={contextValue}>
+        <MyContextProvider>
           <QueryClientProvider client={queryClient}>
             <Header />
             <TimeSliderProvider>
@@ -72,7 +47,7 @@ export default function App() {
               <SidePanel />
             </TimeSliderProvider>
           </QueryClientProvider>
-        </MyContext.Provider>
+        </MyContextProvider>
       </calcite-shell>
     )
   );

@@ -12,9 +12,9 @@ import "@esri/calcite-components/components/calcite-action-bar";
 import type { ArcgisMap } from "@arcgis/map-components/dist/components/arcgis-map";
 import "../index.css";
 import { useQuery } from "@tanstack/react-query";
-import { useContext, useMemo } from "react";
+import { useMemo } from "react";
 import type FeatureLayer from "@arcgis/core/layers/FeatureLayer";
-import { MyContext } from "../contexts/MyContext";
+import { useMyContext } from "../contexts/MyContext";
 import { buildWhereClause } from "../MapQuery";
 
 interface QueryFeaturesType {
@@ -31,17 +31,21 @@ async function queryFeatures({ layer, queryc }: QueryFeaturesType) {
   return await layer?.queryFeatures(query);
 }
 
-// Static — depends only on lotStatuses (a module-level import), so computed
-// once here instead of re-scanning the array on every render.
+// Static — depends only on lotStatuses, so computed once instead of
+// re-scanning the array on every render
 const exproV = lotStatuses.find((e: any) => e.label.includes("Expro"))?.code ?? null;
 
-//--- Highlight & zoom into clicked land
-// Module-level so it persists across renders/clicks without needing state
-// (mirrors the highlighted feature, not something the UI displays directly).
+// ----------------------------------------------------
+// HIGHLIGHT & ZOOM
+// Clicking a list item zooms the map to that lot and highlights it.
+// ----------------------------------------------------
+
+// Module-level so it persists across renders/clicks without needing
+// state (mirrors the highlighted feature, not something the UI shows)
 let highlightSelect: any;
 
 async function resultClickHandler(event: any) {
-  // Matches MapDisplay.tsx's <arcgis-map id="mmsp-map">, not a 3D scene.
+  // Matches MapDisplay.tsx's <arcgis-map id="mmsp-map">, not a 3D scene
   const arcgisMap = document.querySelector("#mmsp-map") as ArcgisMap;
   if (!arcgisMap?.view) return;
 
@@ -59,19 +63,25 @@ async function resultClickHandler(event: any) {
 
   const layerView = await arcgisMap.view.whenLayerView(lotLayer);
 
-  // Remove any previous highlight before applying a new one.
+  // Remove any previous highlight before applying a new one
   highlightSelect?.remove();
   highlightSelect = layerView.highlight([event.target.value]);
 
-  // Clicking elsewhere on the map clears the highlight/filter.
+  // Clicking elsewhere on the map clears the highlight
   arcgisMap.view.on("click", () => {
     layerView.filter = null;
     highlightSelect?.remove();
   });
 }
 
+// ----------------------------------------------------
+// COMPONENT
+// Lists lots currently under Expropriation status, filtered by the
+// shared selectedLocation.
+// ----------------------------------------------------
+
 const ExpropriationList = () => {
-  const { selectedLocation } = useContext(MyContext);
+  const { selectedLocation } = useMyContext();
   const { packageName, type, station } = selectedLocation;
 
   const querycExpro = buildWhereClause(packageName, type, station, exproV, lotStatusField);
@@ -88,6 +98,7 @@ const ExpropriationList = () => {
     },
   });
 
+  // De-duplicates by OBJECTID and reshapes into what the list needs
   const uniqueExproItems = useMemo(() => {
     if (!data) return [];
 

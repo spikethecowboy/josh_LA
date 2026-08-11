@@ -1,6 +1,6 @@
-import { useContext, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { MyContext, type SelectedLocation } from "../contexts/MyContext";
+import { useMyContext, type SelectedLocation } from "../contexts/MyContext";
 import { fieldStatistic, pieChartStatusData } from "../Query";
 import * as am5 from "@amcharts/amcharts5";
 import * as am5percent from "@amcharts/amcharts5/percent";
@@ -18,7 +18,7 @@ type ChartDatum = { category: string; value: number; color: string; code: number
 // ----------------------------------------------------
 // LOCAL HOOK: data fetching
 // Same shape as LotChart's useLotData — filters by the shared
-// selectedLocation (Package/Type/Station) via QueryExpressionLayers.
+// selectedLocation (Package/Type/Station).
 // ----------------------------------------------------
 function useISFData({ packageName, type, station }: SelectedLocation) {
   return useQuery({
@@ -53,6 +53,8 @@ function useISFData({ packageName, type, station }: SelectedLocation) {
   });
 }
 
+// Disposes any previous chart root under this id, so re-mounting
+// doesn't leave a duplicate amCharts instance behind
 function maybeDisposeRoot(divId: string) {
   am5.array.each(am5.registry.rootElements, function (root) {
     if (root.dom.id === divId) {
@@ -63,9 +65,9 @@ function maybeDisposeRoot(divId: string) {
 
 // ----------------------------------------------------
 // LOCAL HOOK: chart lifecycle
-// Same amCharts setup/lifecycle as LotChart's usePieChart. Deals purely
-// in plain `string | null` codes — the tagging (source: "isf") happens
-// one level up, in the component.
+// Same amCharts setup as LotChart's usePieChart. Deals in plain
+// `string | null` codes — the "isf" tagging happens one level up, in
+// the component.
 // ----------------------------------------------------
 function usePieChart(
   chartData: ChartDatum[],
@@ -75,6 +77,8 @@ function usePieChart(
   const pieSeriesRef = useRef<any>({});
   const legendRef = useRef<any>({});
 
+  // Lets the click handler read the latest selectedCode without
+  // needing to be in its own dependency array
   const selectedCodeRef = useRef<number | string | null>(selectedCode);
   useEffect(() => {
     selectedCodeRef.current = selectedCode;
@@ -159,6 +163,8 @@ function usePieChart(
     };
   }, []);
 
+  // Pushes new data into the existing chart/legend on every chartData
+  // change, instead of rebuilding the whole chart
   useEffect(() => {
     pieSeriesRef.current?.data?.setAll(chartData);
     legendRef.current?.data?.setAll(pieSeriesRef.current?.dataItems);
@@ -167,15 +173,14 @@ function usePieChart(
 }
 
 // ----------------------------------------------------
-// COMPONENT — wires the two hooks together, drives ISFLayer's
-// filter + map zoom, and renders
+// COMPONENT
+// Wires the two hooks together, drives ISFLayer's filter + map zoom,
+// and renders.
 // ----------------------------------------------------
 export default function ISFChart() {
-  const { selectedLocation, selectedStatus, updateStatus } = useContext(MyContext);
+  const { selectedLocation, selectedStatus, updateStatus } = useMyContext();
 
-  // Only treat the shared selection as "ours" when it's tagged source:
-  // "isf" — a selection from Lot (or later, Structure) means no ISF
-  // slice is currently active.
+  // Only treat the selection as "ours" if it's tagged source: "isf"
   const isfSelectedCode =
     selectedStatus?.source === "isf" ? (selectedStatus.code as string) : null;
 
@@ -188,13 +193,8 @@ export default function ISFChart() {
 
   usePieChart(chartData, isfSelectedCode, handleSliceClick);
 
-  // ----------------------------------------------------
-  // EFFECT: filter ISFLayer and drive map zoom whenever the shared
-  // location or status selection changes. Only zooms when the active
-  // selection belongs to this chart (source === "isf") — mirrors the
-  // old MapDisplay EFFECT 2, just scoped to this layer so ISF
-  // filtering/zooming lives next to the chart that triggers it.
-  // ----------------------------------------------------
+  // Filters ISFLayer and zooms the map — only zooms when the active
+  // selection belongs to this chart
   useEffect(() => {
     const { packageName, type, station } = selectedLocation;
     const shouldZoom = selectedStatus?.source === "isf";
