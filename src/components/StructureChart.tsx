@@ -7,7 +7,7 @@ import * as am5percent from "@amcharts/amcharts5/percent";
 import am5themes_Animated from "@amcharts/amcharts5/themes/Animated";
 import am5themes_Responsive from "@amcharts/amcharts5/themes/Responsive";
 import {
-  structureLayer,
+  existingStructureLayer,
   structureStatuses,
   structurestatisticField,
   structureStatusField,
@@ -34,18 +34,18 @@ function useStructureData({ packageName, type, station }: SelectedLocation) {
         qValues: [packageName, type, station] as [any?, any?, any?],
       };
 
-      const where = new QueryExpressionLayers({ ...baseFilter }).queryExpression();
+      const where = new QueryExpressionLayers({ ...baseFilter, qExpression: `${structureStatusField} < 7`, q2Expression: `${structureStatusField} > 0` }).queryExpression();
 
       const [totalNumber, chartData] = await Promise.all([
         fieldStatistic({
           where,
-          layer: structureLayer,
+          layer: existingStructureLayer,
           statisticField: structurestatisticField,
           statisticType: "count",
         }),
         pieChartStatusData({
           where,
-          layer: structureLayer,
+          layer: existingStructureLayer,
           statusList: structureStatuses,
           statusField: structureStatusField,
           statisticField: structurestatisticField,
@@ -255,7 +255,7 @@ export default function StructureChart() {
     const shouldZoom = selectedStatus?.source === "structure";
 
     filterAndGetTargetExtent(
-      structureLayer,
+      existingStructureLayer,
       packageName,
       type,
       station,

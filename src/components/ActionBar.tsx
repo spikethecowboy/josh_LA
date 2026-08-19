@@ -47,6 +47,16 @@ export default function ActionBar() {
 
     layerListRef.current.listItemCreatedFunction = (event) => {
       const item = event.item;
+      // GroupLayer items already show their children (each with its own
+      // legend panel below) via the expand chevron — giving the group
+      // ITSELF a legend panel too just duplicates every child's legend a
+      // second time, stacked under the group. Start it expanded so the
+      // children are visible right away, no click needed.
+      if (item.layer?.type === "group") {
+        // item.open = true;
+        return;
+      }
+
       item.panel = {
         content: "legend",
         open: true,
@@ -85,17 +95,17 @@ export default function ActionBar() {
         }}
       >
         <calcite-action
-          icon="basemap"
-          text="Basemap"
-          active={activePanel === "basemap"}
-          onClick={() => togglePanel("basemap")}
-        ></calcite-action>
-
-        <calcite-action
           icon="layers"
           text="Layers"
           active={activePanel === "layers"}
           onClick={() => togglePanel("layers")}
+        ></calcite-action>
+
+        <calcite-action
+          icon="basemap"
+          text="Basemap"
+          active={activePanel === "basemap"}
+          onClick={() => togglePanel("basemap")}
         ></calcite-action>
 
         <calcite-action
@@ -124,24 +134,6 @@ export default function ActionBar() {
           the panel is reopened from the action bar.
       ---------------------------------------------------- */}
 
-      {/* Basemap */}
-      {visitedPanels.has("basemap") && (
-        <calcite-panel
-          heading="Basemap"
-          style={{ display: activePanel === "basemap" ? "block" : "none" }}
-        >
-          <calcite-action
-            slot="header-actions-end"
-            icon="x"
-            text="Close"
-            onClick={() => setActivePanel(null)}
-          ></calcite-action>
-          <div style={{ overflowY: "auto", overflowX: "hidden", maxHeight: "calc(100vh - 120px)" }}>
-            <arcgis-basemap-gallery referenceElement="mmsp-map"></arcgis-basemap-gallery>
-          </div>
-        </calcite-panel>
-      )}
-
       {/* Layers — arcgis-layer-list bundles checkbox, title, and
           per-layer legend into one widget */}
       {visitedPanels.has("layers") && (
@@ -160,6 +152,24 @@ export default function ActionBar() {
               ref={layerListRef}
               referenceElement="mmsp-map"
             ></arcgis-layer-list>
+          </div>
+        </calcite-panel>
+      )}
+
+      {/* Basemap */}
+      {visitedPanels.has("basemap") && (
+        <calcite-panel
+          heading="Basemap"
+          style={{ display: activePanel === "basemap" ? "block" : "none" }}
+        >
+          <calcite-action
+            slot="header-actions-end"
+            icon="x"
+            text="Close"
+            onClick={() => setActivePanel(null)}
+          ></calcite-action>
+          <div style={{ overflowY: "auto", overflowX: "hidden", maxHeight: "calc(100vh - 120px)" }}>
+            <arcgis-basemap-gallery referenceElement="mmsp-map"></arcgis-basemap-gallery>
           </div>
         </calcite-panel>
       )}

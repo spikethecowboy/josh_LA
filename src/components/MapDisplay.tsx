@@ -8,7 +8,9 @@ import { useEffect, useRef } from "react";
 import type { ArcgisMap } from "@arcgis/map-components/dist/components/arcgis-map";
 import type MapView from "@arcgis/core/views/MapView";
 
-import { lotLayer, alignmentLayer, stationLayer, structureLayer, ISFLayer } from "../layers";
+import { landGroupLayer, stationLayer, structuresGroupLayer, isfLayer, ortigasStationGroupLayer, alignmentLayer, eastValenzualaStationGroupLayer, depotBuildingsGroupLayer,
+          boundaryGroupLayer, senateDepEdStationGroupLayer
+ } from "../layers";
 import { useTimeSliderToggle } from "../contexts/TimeSliderContext";
 import TimeSlider from "./TimeSlider";
 
@@ -38,11 +40,16 @@ export default function MapDisplay() {
       // Publish the view so LotChart/ISFChart can drive goTo() themselves.
       mapView.current = viewRef.current;
 
-      viewRef.current.map?.add(lotLayer);
+      viewRef.current.map?.add(landGroupLayer);
+      viewRef.current.map?.add(structuresGroupLayer);
+      viewRef.current.map?.add(isfLayer);
+      viewRef.current.map?.add(boundaryGroupLayer);
+      viewRef.current.map?.add(depotBuildingsGroupLayer);
+      viewRef.current.map?.add(senateDepEdStationGroupLayer);
+      viewRef.current.map?.add(ortigasStationGroupLayer);
+      viewRef.current.map?.add(eastValenzualaStationGroupLayer);
       viewRef.current.map?.add(alignmentLayer);
       viewRef.current.map?.add(stationLayer);
-      viewRef.current.map?.add(structureLayer);
-      viewRef.current.map?.add(ISFLayer);
     };
 
     initializeMap();

@@ -183,6 +183,7 @@ export default function TimeSlider() {
       slot="bottom-start"
       loop
       onarcgisPropertyChange={handlePropertyChange}
+      mode="instant"
     ></arcgis-time-slider>
   );
 }

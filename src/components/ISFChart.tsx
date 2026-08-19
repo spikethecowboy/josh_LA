@@ -6,7 +6,7 @@ import * as am5 from "@amcharts/amcharts5";
 import * as am5percent from "@amcharts/amcharts5/percent";
 import am5themes_Animated from "@amcharts/amcharts5/themes/Animated";
 import am5themes_Responsive from "@amcharts/amcharts5/themes/Responsive";
-import { ISFLayer, isfStatuses, isfstatisticfield, isfStatusField } from "../layers";
+import { isfLayer, isfStatuses, isfstatisticfield, isfStatusField } from "../layers";
 import QueryExpressionLayers from "../CreateQueryJosh";
 import { filterAndGetTargetExtent } from "../MapQuery";
 import { mapView } from "../components/MapDisplay";
@@ -34,13 +34,13 @@ function useISFData({ packageName, type, station }: SelectedLocation) {
       const [totalNumber, chartData] = await Promise.all([
         fieldStatistic({
           where,
-          layer: ISFLayer,
+          layer: isfLayer,
           statisticField: isfstatisticfield,
           statisticType: "count",
         }),
         pieChartStatusData({
           where,
-          layer: ISFLayer,
+          layer: isfLayer,
           statusList: isfStatuses,
           statusField: isfStatusField,
           statisticField: isfstatisticfield,
@@ -174,7 +174,7 @@ function usePieChart(
 
 // ----------------------------------------------------
 // COMPONENT
-// Wires the two hooks together, drives ISFLayer's filter + map zoom,
+// Wires the two hooks together, drives isfLayer's filter + map zoom,
 // and renders.
 // ----------------------------------------------------
 export default function ISFChart() {
@@ -193,14 +193,14 @@ export default function ISFChart() {
 
   usePieChart(chartData, isfSelectedCode, handleSliceClick);
 
-  // Filters ISFLayer and zooms the map — only zooms when the active
+  // Filters isfLayer and zooms the map — only zooms when the active
   // selection belongs to this chart
   useEffect(() => {
     const { packageName, type, station } = selectedLocation;
     const shouldZoom = selectedStatus?.source === "isf";
 
     filterAndGetTargetExtent(
-      ISFLayer,
+      isfLayer,
       packageName,
       type,
       station,
