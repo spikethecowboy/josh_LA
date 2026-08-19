@@ -1,0 +1,1 @@
+import{gp as l,gq as s,gr as o,eU as c}from"./index-CasVizV4.js";function u({level:e,class:n,...t},i){const r=a(e);return l(`h${r}`,{...t,"aria-level":String(r),class:s(o.heading,n),role:"heading"},i)}function a(e){return c(Math.ceil(e),1,6)}function f(e,n=1){return a(e+n)}export{u as i,f as l};

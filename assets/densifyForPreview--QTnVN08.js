@@ -1,0 +1,1 @@
+import{cX as s,cY as h,cZ as m,c_ as e,c$ as u}from"./index-CasVizV4.js";import{t as f}from"./densificationConstants-Djgo1k1s.js";function w(t,n,i,o){const{height:c,width:r}=o??p(t),a=Math.min(r/n,c/i)*f();return s(t,{maxDeviation:a})}function p(t){const n=h(m(),t);return{width:u(n),height:e(n)}}export{w as n};

@@ -1,0 +1,1 @@
+import{ha as o}from"./index-CasVizV4.js";import"./Point2D-Davf7tVb.js";import"./MultiPathImpl-BhhHcqCf.js";import{c as u}from"./ProjectionTransformation-C3-KmdrT.js";const r=new u;function s(t,n,e){return r.execute(t,n,e,null)}function a(t,n){return r.executeMany(new o(t),n,null).next()}function f(){return r.supportsCurves()}export{f as o,s as r,a as u};
