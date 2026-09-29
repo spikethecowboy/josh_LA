@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { useMyContext, type SelectedLocation } from "../contexts/MyContext";
 import { useActiveDateFields } from "../contexts/TimeSliderContext";
 import { fieldStatistic, pieChartStatusData } from "../Query";
@@ -11,6 +11,9 @@ import {
   lotLayer,
   lotStatuses,
   lotstatisticField,
+  handedOverLotsLayer,
+  toBeHandedOverLotsLayer,
+  subterraneanLotsLayer,
 } from "../layers";
 import QueryExpressionLayers from "../CreateQueryJosh";
 import { filterAndGetTargetExtent } from "../MapQuery";
@@ -24,7 +27,8 @@ type ChartDatum = { category: string; value: number; color: string; code: number
 // LOCAL HOOK: data fetching
 // statusField/handedOverField/notYetField come from TimeSliderContext —
 // a date's NVS/JV/NY fields while the slider is on, or the defaults
-// while it's off.
+// while it's off. keepPreviousData means `data` stays populated across
+// filter changes instead of resetting to undefined mid-fetch.
 // ----------------------------------------------------
 function useLotData(
   { packageName, type, station }: SelectedLocation,
@@ -99,6 +103,7 @@ function useLotData(
         chartData,
       };
     },
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -121,6 +126,7 @@ function usePieChart(
   chartData: ChartDatum[],
   selectedCode: number | string | null,
   onSliceClick: (code: number | string | null) => void,
+  textColor: string,
 ) {
   const pieSeriesRef = useRef<any>({});
   const legendRef = useRef<any>({});
@@ -131,6 +137,14 @@ function usePieChart(
   useEffect(() => {
     selectedCodeRef.current = selectedCode;
   }, [selectedCode]);
+
+  // Lets the chart-creation effect below read the current textColor at
+  // mount time without adding it to that effect's dependency array
+  // (chart creation should only run once)
+  const textColorRef = useRef(textColor);
+  useEffect(() => {
+    textColorRef.current = textColor;
+  }, [textColor]);
 
   useEffect(() => {
     maybeDisposeRoot(CHART_ID);
@@ -153,7 +167,7 @@ function usePieChart(
         legendValueText: "{valuePercentTotal.formatNumber('#.')}% ({value})",
         radius: am5.percent(45),
         innerRadius: am5.percent(28),
-        scale: 1.8,
+        scale: 2,
       }),
     );
     pieSeriesRef.current = pieSeries;
@@ -185,7 +199,7 @@ function usePieChart(
     pieSeries.ticks.template.setAll({ visible: false, scale: 0 });
 
     const legend = chart.children.push(
-      am5.Legend.new(root, { centerX: am5.percent(50), x: am5.percent(50), scale: 0.9 }),
+      am5.Legend.new(root, { centerX: am5.percent(50), x: am5.percent(50), scale: 0.9, height: 170 }),
     );
     legendRef.current = legend;
 
@@ -199,11 +213,11 @@ function usePieChart(
     });
     legend.labels.template.setAll({
       oversizedBehavior: "truncate",
-      fill: am5.color("#ffffff"),
+      fill: am5.color(textColorRef.current),
       width: 250,
       maxWidth: 270,
     });
-    legend.valueLabels.template.setAll({ textAlign: "right", fill: am5.color("#ffffff") });
+    legend.valueLabels.template.setAll({ textAlign: "right", fill: am5.color(textColorRef.current) });
     legend.itemContainers.template.setAll({ paddingTop: 3, paddingBottom: 1 });
 
     return () => {
@@ -216,8 +230,29 @@ function usePieChart(
   useEffect(() => {
     pieSeriesRef.current?.data?.setAll(chartData);
     legendRef.current?.data?.setAll(pieSeriesRef.current?.dataItems);
-    pieSeriesRef.current?.appear(0, 200);
+    //pieSeriesRef.current?.appear(0, 1);
   }, [chartData]);
+
+  // Recolors the legend's labels whenever the background toggle
+  // changes — amCharts renders its own canvas text, so it doesn't pick
+  // up the surrounding CSS color and has to be updated through its API.
+  // Updating the template alone isn't enough to repaint labels that
+  // were already rendered, so each existing label instance is also
+  // updated directly.
+  useEffect(() => {
+    const legend = legendRef.current;
+    if (!legend?.labels) return;
+
+    const color = am5.color(textColor);
+
+    legend.labels.template.setAll({ fill: color });
+    legend.valueLabels.template.setAll({ fill: color });
+
+    legend.dataItems?.forEach((dataItem: any) => {
+      dataItem.get("label")?.set("fill", color);
+      dataItem.get("valueLabel")?.set("fill", color);
+    });
+  }, [textColor]);
 }
 
 // ----------------------------------------------------
@@ -228,6 +263,15 @@ export default function LotChart() {
   const { activeStatusField, activeHandedOverField, activeNotYetField } =
     useActiveDateFields();
 
+  // Background toggle: default (transparent — original look) or white.
+  // Text flips to a dark shade only when white is active, so it stays
+  // readable; it stays white in the default state.
+  const [background, setBackground] = useState<"default" | "white">("default");
+  const isDefault = background === "default";
+  const bgColor = isDefault ? "transparent" : "#ffffff";
+  const textColor = isDefault ? "#ffffff" : "#1a1a1a";
+  const toggleBackground = () => setBackground((prev) => (prev === "default" ? "white" : "default"));
+
   // Only treat the selection as "ours" if it's tagged source: "lot"
   const lotSelectedCode =
     selectedStatus?.source === "lot" ? (selectedStatus.code as number) : null;
@@ -236,7 +280,7 @@ export default function LotChart() {
     updateStatus(code === null ? null : { source: "lot", code });
   };
 
-  const { data, isLoading, isError } = useLotData(
+  const { data, isError } = useLotData(
     selectedLocation,
     activeStatusField,
     activeHandedOverField,
@@ -244,13 +288,44 @@ export default function LotChart() {
   );
   const chartData = data?.chartData ?? [];
 
-  usePieChart(chartData, lotSelectedCode, handleSliceClick);
+  // With keepPreviousData, data only stays undefined until the very
+  // first fetch resolves — after that it's always populated, so this
+  // flips false -> true once and never again.
+  const hasData = !!data;
+
+  usePieChart(chartData, lotSelectedCode, handleSliceClick, textColor);
 
   // Filters lotLayer and zooms the map to match — only zooms if no
-  // status is selected yet, or the selection belongs to this chart
+  // status is selected yet, or the selection belongs to this chart.
+  //
+  // Also keeps the three derived lot layers (handedOver, toBeHandedOver,
+  // subterranean) filtered to the current package/type/station, while
+  // preserving each layer's own base condition (HandedOVer = 1,
+  // not_yet = 1, Tunnel_Depth > 18). These never drive the map zoom —
+  // only lotLayer does that, via filterAndGetTargetExtent below.
   useEffect(() => {
     const { packageName, type, station } = selectedLocation;
     const shouldZoom = selectedStatus === null || selectedStatus.source === "lot";
+
+    const locationFilter = {
+      qFields: ["Package", "Type", "Station1"] as [any?, any?, any?],
+      qValues: [packageName, type, station] as [any?, any?, any?],
+    };
+
+    handedOverLotsLayer.definitionExpression = new QueryExpressionLayers({
+      ...locationFilter,
+      qExpression: `${activeHandedOverField} = 1`,
+    }).queryExpression();
+
+    toBeHandedOverLotsLayer.definitionExpression = new QueryExpressionLayers({
+      ...locationFilter,
+      qExpression: `${activeNotYetField} = 1`,
+    }).queryExpression();
+
+    subterraneanLotsLayer.definitionExpression = new QueryExpressionLayers({
+      ...locationFilter,
+      qExpression: "Tunnel_Depth > 18",
+    }).queryExpression();
 
     filterAndGetTargetExtent(
       lotLayer,
@@ -264,13 +339,27 @@ export default function LotChart() {
         mapView.current.goTo(extent);
       }
     });
-  }, [selectedLocation, selectedStatus, lotSelectedCode, activeStatusField]);
+  }, [
+    selectedLocation,
+    selectedStatus,
+    lotSelectedCode,
+    activeStatusField,
+    activeHandedOverField,
+    activeNotYetField,
+  ]);
 
   const totalNumber = data?.totalNumber ?? 0;
   const publicNumber = data?.publicNumber ?? 0;
   const privateNumber = data?.privateNumber ?? 0;
   const handedOverNumber = data?.handedOverNumber ?? 0;
   const toBeHandedOverNumber = data?.toBeHandedOverNumber ?? 0;
+
+  // Percentage of total lots, guarded against divide-by-zero when
+  // totalNumber is 0 (e.g. no lots match the current filter yet).
+  const handedOverPercentage =
+    totalNumber > 0 ? Number(((handedOverNumber / totalNumber) * 100).toFixed(1)) : 0;
+  const toBeHandedOverPercentage =
+    totalNumber > 0 ? Number(((toBeHandedOverNumber / totalNumber) * 100).toFixed(1)) : 0;
 
   if (isError) {
     return (
@@ -281,24 +370,33 @@ export default function LotChart() {
   }
 
   return (
-    <>
-      <div style={{ display: "flex", gap: "24px", justifyContent: "center", width: "100%", color: "white" }}>
-        <div>
+    <div
+      style={{
+        minHeight: "98%",
+        display: "flex",
+        flexDirection: "column",
+        paddingTop: "12px",
+        backgroundColor: bgColor,
+        transition: "background-color 0.2s",
+      }}
+    >
+      <div style={{ flexShrink: 0, display: "flex", gap: "24px", justifyContent: "center", width: "100%", color: textColor }}>
+        <div style={{ minWidth: "110px" }}>
           <div style={{ fontSize: "12px", opacity: 0.7, textAlign: "center" }}>TOTAL LOTS</div>
-          <div style={{ fontSize: "28px", fontWeight: 600, textAlign: "center" }}>
-            {isLoading ? "" : totalNumber.toLocaleString()}
+          <div style={{ height: "12px", fontSize: "28px", fontWeight: 600, textAlign: "center", fontVariantNumeric: "tabular-nums" }}>
+            {hasData ? totalNumber.toLocaleString() : ""}
           </div>
         </div>
-        <div>
+        <div style={{ minWidth: "110px" }}>
           <div style={{ fontSize: "12px", opacity: 0.7, textAlign: "center" }}>PUBLIC LOTS</div>
-          <div style={{ fontSize: "28px", fontWeight: 600, textAlign: "center" }}>
-            {isLoading ? "" : publicNumber.toLocaleString()}
+          <div style={{ height: "12px", fontSize: "28px", fontWeight: 600, textAlign: "center", fontVariantNumeric: "tabular-nums" }}>
+            {hasData ? publicNumber.toLocaleString() : ""}
           </div>
         </div>
-        <div>
+        <div style={{ minWidth: "110px" }}>
           <div style={{ fontSize: "12px", opacity: 0.7, textAlign: "center" }}>PRIVATE LOTS</div>
-          <div style={{ fontSize: "28px", fontWeight: 600, textAlign: "center" }}>
-            {isLoading ? "" : privateNumber.toLocaleString()}
+          <div style={{ height: "12px", fontSize: "28px", fontWeight: 600, textAlign: "center", fontVariantNumeric: "tabular-nums" }}>
+            {hasData ? privateNumber.toLocaleString() : ""}
           </div>
         </div>
       </div>
@@ -306,30 +404,84 @@ export default function LotChart() {
       <div
         id={CHART_ID}
         style={{
-          height: "60vh",
+          position: "relative", 
+          flex: "1 1 auto",
+          minHeight: "200px",
+          overflow: "hidden",
           backgroundColor: "rgba(0,0,0,0)",
-          color: "white",
-          marginTop: "8%",
-          marginBottom: "7px",
-          opacity: isLoading ? 0 : 1,
-          transition: "opacity 0.2s",
+          color: textColor,
+          marginBottom: "15px",
         }}
       ></div>
 
-      <div style={{ display: "flex", gap: "24px", justifyContent: "center", width: "100%", color: "white" }}>
-        <div>
+      <div style={{ position: "relative", flexShrink: 0, display: "flex", gap: "24px", justifyContent: "center", width: "100%", color: textColor, paddingTop: "5px" }}>
+        <div style={{ minWidth: "170px" }}>
           <div style={{ fontSize: "12px", opacity: 0.7, textAlign: "center" }}>HANDED OVER LOTS</div>
-          <div style={{ fontSize: "28px", fontWeight: 600, textAlign: "center" }}>
-            {isLoading ? "" : handedOverNumber.toLocaleString()}
+          <div style={{ height: "34px", fontSize: "28px", fontWeight: 600, textAlign: "center", fontVariantNumeric: "tabular-nums" }}>
+            {hasData ? `${handedOverPercentage}% (${handedOverNumber.toLocaleString()})` : ""}
           </div>
         </div>
-        <div>
+        <div style={{ minWidth: "170px" }}>
           <div style={{ fontSize: "12px", opacity: 0.7, textAlign: "center" }}>TO BE HANDED OVER LOTS</div>
-          <div style={{ fontSize: "28px", fontWeight: 600, textAlign: "center" }}>
-            {isLoading ? "" : toBeHandedOverNumber.toLocaleString()}
+          <div style={{ height: "34px", fontSize: "28px", fontWeight: 600, textAlign: "center", fontVariantNumeric: "tabular-nums" }}>
+            {hasData ? `${toBeHandedOverPercentage}% (${toBeHandedOverNumber.toLocaleString()})` : ""}
           </div>
         </div>
       </div>
-    </>
+
+      {/* Background toggle switch — its own container, fixed to the
+          viewport's lower right, default (transparent) <-> white */}
+      <div
+        style={{
+          position: "relative",
+        }}
+      >
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "8px 12px",
+            borderRadius: "8px",
+            backgroundColor: "transparent",
+            cursor: "pointer",
+            userSelect: "none",
+          }}
+        >
+          <span style={{ fontSize: "12px", color: textColor }}>
+            {isDefault ? "Default" : "White"}
+          </span>
+          <span
+            role="switch"
+            aria-checked={!isDefault}
+            onClick={toggleBackground}
+            style={{
+              position: "relative",
+              width: "40px",
+              height: "22px",
+              borderRadius: "11px",
+              backgroundColor: isDefault ? "#666666" : "#2e7d32",
+              transition: "background-color 0.2s",
+              display: "inline-block",
+              flexShrink: 0,
+            }}
+          >
+            <span
+              style={{
+                position: "absolute",
+                top: "2px",
+                left: isDefault ? "2px" : "20px",
+                width: "18px",
+                height: "18px",
+                borderRadius: "50%",
+                backgroundColor: "#ffffff",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.4)",
+                transition: "left 0.2s",
+              }}
+            />
+          </span>
+        </label>
+      </div>
+    </div>
   );
 }

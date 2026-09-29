@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { useMyContext, type SelectedLocation } from "../contexts/MyContext";
 import { fieldStatistic, pieChartStatusData } from "../Query";
 import * as am5 from "@amcharts/amcharts5";
@@ -23,7 +23,9 @@ type ChartDatum = { category: string; value: number; color: string; code: number
 // ----------------------------------------------------
 // LOCAL HOOK: data fetching
 // Same shape as LotChart's/ISFChart's — filters by the shared
-// selectedLocation (Package/Type/Station).
+// selectedLocation (Package/Type/Station). keepPreviousData means
+// `data` stays populated across filter changes instead of resetting
+// to undefined mid-fetch.
 // ----------------------------------------------------
 function useStructureData({ packageName, type, station }: SelectedLocation) {
   return useQuery({
@@ -55,6 +57,7 @@ function useStructureData({ packageName, type, station }: SelectedLocation) {
 
       return { totalNumber, chartData: chartData as ChartDatum[] };
     },
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -120,7 +123,7 @@ function usePieChart(
         legendValueText: "{valuePercentTotal.formatNumber('#.')}% ({value})",
         radius: am5.percent(45),
         innerRadius: am5.percent(28),
-        scale: 1.8,
+        scale: 2,
       }),
     );
     pieSeriesRef.current = pieSeries;
@@ -178,7 +181,7 @@ function usePieChart(
     pieSeries.ticks.template.setAll({ visible: false, scale: 0 });
 
     const legend = chart.children.push(
-      am5.Legend.new(root, { centerX: am5.percent(50), x: am5.percent(50), scale: 0.9 }),
+      am5.Legend.new(root, { centerX: am5.percent(50), x: am5.percent(50), scale: 0.9, height: 170 }),
     );
     legendRef.current = legend;
 
@@ -223,7 +226,7 @@ function usePieChart(
     }));
     pieSeriesRef.current?.data?.setAll(mapped);
     legendRef.current?.data?.setAll(pieSeriesRef.current?.dataItems);
-    pieSeriesRef.current?.appear(0, 200);
+    //pieSeriesRef.current?.appear(0, 200);
   }, [chartData]);
 }
 
@@ -243,8 +246,13 @@ export default function StructureChart() {
     updateStatus(code === null ? null : { source: "structure", code });
   };
 
-  const { data, isLoading, isError } = useStructureData(selectedLocation);
+  const { data, isError } = useStructureData(selectedLocation);
   const chartData = data?.chartData ?? [];
+
+  // With keepPreviousData, data only stays undefined until the very
+  // first fetch resolves — after that it's always populated, so this
+  // flips false -> true once and never again.
+  const hasData = !!data;
 
   usePieChart(chartData, structureSelectedCode, handleSliceClick);
 
@@ -279,12 +287,19 @@ export default function StructureChart() {
   }
 
   return (
-    <>
-      <div style={{ display: "flex", gap: "24px", justifyContent: "center", width: "100%", color: "white" }}>
-        <div>
+    <div
+      style={{
+        minHeight: "98%",
+        display: "flex",
+        flexDirection: "column",
+        paddingTop: "12px",
+      }}
+    >
+      <div style={{ flexShrink: 0, display: "flex", gap: "24px", justifyContent: "center", width: "100%", color: "white" }}>
+        <div style={{ minWidth: "110px" }}>
           <div style={{ fontSize: "12px", opacity: 0.7, textAlign: "center" }}>TOTAL STRUCTURES</div>
-          <div style={{ fontSize: "28px", fontWeight: 600, textAlign: "center" }}>
-            {isLoading ? "" : totalNumber.toLocaleString()}
+          <div style={{ height: "12px", fontSize: "28px", fontWeight: 600, textAlign: "center", fontVariantNumeric: "tabular-nums" }}>
+            {hasData ? totalNumber.toLocaleString() : ""}
           </div>
         </div>
       </div>
@@ -292,15 +307,38 @@ export default function StructureChart() {
       <div
         id={CHART_ID}
         style={{
-          height: "60vh",
+          position: "relative",
+          flex: "1 1 auto",
+          minHeight: "200px",
+          overflow: "hidden",
           backgroundColor: "rgba(0,0,0,0)",
           color: "white",
-          marginTop: "8%",
-          marginBottom: "7px",
-          opacity: isLoading ? 0 : 1,
-          transition: "opacity 0.2s",
+          marginBottom: "15px",
         }}
       ></div>
-    </>
+
+      {/* Invisible placeholder — reserves the exact same height LotChart's
+          bottom stat row takes up, so the chart above ends at the same
+          position/size in both charts, without showing any content here. */}
+      <div style={{ position: "relative", flexShrink: 0, display: "flex", gap: "24px", justifyContent: "center", width: "100%", paddingTop: "5px", visibility: "hidden" }}>
+        <div style={{ minWidth: "170px" }}>
+          <div style={{ fontSize: "12px", textAlign: "center" }}>&nbsp;</div>
+          <div style={{ height: "34px", fontSize: "28px", fontWeight: 600, textAlign: "center" }}>&nbsp;</div>
+        </div>
+        <div style={{ minWidth: "170px" }}>
+          <div style={{ fontSize: "12px", textAlign: "center" }}>&nbsp;</div>
+          <div style={{ height: "34px", fontSize: "28px", fontWeight: 600, textAlign: "center" }}>&nbsp;</div>
+        </div>
+      </div>
+
+      {/* Invisible placeholder — reserves the exact same height LotChart's
+          background-toggle switch row takes up. */}
+      <div style={{ position: "relative", visibility: "hidden" }}>
+        <label style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 12px" }}>
+          <span style={{ fontSize: "12px" }}>&nbsp;</span>
+          <span style={{ position: "relative", width: "40px", height: "22px", display: "inline-block", flexShrink: 0 }} />
+        </label>
+      </div>
+    </div>
   );
 }

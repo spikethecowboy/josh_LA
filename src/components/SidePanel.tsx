@@ -13,6 +13,17 @@ import ISFChart from "./ISFChart";
 import ExpropriationList from "./Expro";
 import IssueList from "./Issue";
 
+// calcite-tab adds its own top/bottom padding around whatever's
+// slotted into it (via --calcite-tab-content-block-padding, driven by
+// the tabs' scale="l"). That padding sits outside each chart's own
+// background div, so it shows the tab's own background instead —
+// visible as a gray strip above the content whenever a chart sets a
+// custom background (e.g. LotChart's white toggle). Zeroing it here
+// lets each chart's own div fully own its background with no gap.
+const tabContentStyle = {
+  "--calcite-tab-content-block-padding": "0px",
+} as React.CSSProperties;
+
 export default function SidePanel() {
   // Every tab opened at least once. calcite-tabs mounts all tab content
   // immediately and just hides inactive ones via CSS — building an
@@ -44,7 +55,7 @@ export default function SidePanel() {
           borderRightWidth: 5,
           borderLeftWidth: 5,
           borderBottomWidth: 5,
-          // borderTopWidth: 5,
+          borderTopWidth: 5,
           borderColor: "#555555",
           width: "40%",
         }}
@@ -69,19 +80,19 @@ export default function SidePanel() {
         {/* ----------------------------------------------------
             TAB CONTENT
         ---------------------------------------------------- */}
-        <calcite-tab>
+        <calcite-tab style={tabContentStyle}>
           <LotChart />
         </calcite-tab>
-        <calcite-tab>
+        <calcite-tab style={tabContentStyle}>
           {visitedTabs.has("structure") && <StructureChart />}
         </calcite-tab>
-        <calcite-tab>
+        <calcite-tab style={tabContentStyle}>
           {visitedTabs.has("isf") && <ISFChart />}
         </calcite-tab>
-        <calcite-tab>
+        <calcite-tab style={tabContentStyle}>
           {visitedTabs.has("exprolist") && <ExpropriationList />}
         </calcite-tab>
-        <calcite-tab>
+        <calcite-tab style={tabContentStyle}>
           {visitedTabs.has("issue") && <IssueList />}
         </calcite-tab>
       </calcite-tabs>

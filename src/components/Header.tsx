@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import Dropdown from "./Dropdown";
+import { DateTable } from "../layers";
 
-// Formats today's date, e.g. "July 8, 2026"
-function formatToday() {
-  return new Date().toLocaleDateString("en-US", {
+// Formats a Date, e.g. "July 8, 2026"
+function formatDate(date: Date) {
+  return date.toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
     year: "numeric",
@@ -37,16 +38,38 @@ const styles = {
 } as const;
 
 export default function Header() {
-  // Start with today's date already correct (no blank flash on first render)
-  const [today, setToday] = useState(formatToday);
+  // Empty until the portal table responds — there's no client-side
+  // fallback value here since the date now comes from the table, not
+  // the device clock.
+  const [displayDate, setDisplayDate] = useState("");
 
-  // Refresh once a minute, so the date updates if left open past midnight
   useEffect(() => {
-    const interval = setInterval(() => {
-      setToday(formatToday());
-    }, 60 * 1000);
+    let cancelled = false;
 
-    return () => clearInterval(interval);
+    async function loadDate() {
+      try {
+        await DateTable.load();
+
+        const result = await DateTable.queryFeatures({
+          where: "category = 'Land Acquisition'",
+          outFields: ["date"],
+          num: 1,
+        });
+
+        const rawDate = result.features[0]?.attributes?.date;
+        if (!cancelled && rawDate) {
+          setDisplayDate(formatDate(new Date(rawDate)));
+        }
+      } catch (error) {
+        console.error("Failed to load Land Acquisition date:", error);
+      }
+    }
+
+    loadDate();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (
@@ -56,7 +79,7 @@ export default function Header() {
 
       <Dropdown />
 
-      <span style={styles.date}>{today}</span>
+      <span style={styles.date}>{displayDate}</span>
     </header>
   );
 }

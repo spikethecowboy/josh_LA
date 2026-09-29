@@ -25,29 +25,30 @@ export const demolishedStructureStatusField = "REMARKS";
 
 // ============================================================
 // STATUS DEFINITIONS
-// Shared between each layer's renderer and its pie chart colors.
+// Used by both the map renderers and the pie charts, so the same
+// status always gets the same color everywhere.
 // ============================================================
 
 export const lotStatuses = [
-  { code: 1, label: "Paid",                        color: "#00734d" },
-  { code: 2, label: "For Payment Processing",      color: "#0070ff" },
-  { code: 3, label: "For Legal Pass",              color: "#ffff00" },
-  { code: 4, label: "For Appraisal/Offer to Buy",  color: "#ffaa00" },
+  { code: 1, label: "Paid",                        color: "#70AD47" },
+  { code: 2, label: "For Payment Processing",      color: "#0070FF" },
+  { code: 3, label: "For Legal Pass",              color: "#FFFF00" },
+  { code: 4, label: "For Appraisal/Offer to Buy",  color: "#FFAA00" },
   { code: 5, label: "For Expro",                   color: "#FF0000" },
-  { code: 6, label: "with WOP Fully Turned-over",  color: "#4e6b2f" },
-  { code: 7, label: "ROWUA/TUA",                   color: "#70AD47" },
-  { code: 8, label: "Signed ROWUA/TUA",            color: "#adc993" },
+  { code: 6, label: "with WOP Fully Turned-over",  color: "#00734C" },
+  { code: 7, label: "ROWUA/TUA",                   color: "#55FF00" },
+  { code: 8, label: "Signed ROWUA/TUA",            color: "#B2CFB2" },
 ];
 
-// code values must match RELOCATION's stored text exactly.
+// code must match RELOCATION's stored text exactly.
 export const isfStatuses = [
   { code: "UNRELOCATED",    label: "Unrelocated",    color: "#ff0000" },
   { code: "RELOCATED",      label: "Relocated",      color: "#00b050" },
   { code: "SELF-RELOCATED", label: "Self-Relocated", color: "#0070ff" },
 ];
 
-// First 5 mirror lotStatuses (code/label/color) for visual consistency
-// across charts. Quit Claim (6) is specific to structures.
+// First 5 match lotStatuses so charts look the same across layers.
+// Quit Claim (6) only applies to structures.
 export const structureStatuses = [
   { code: 1, label: "Paid",                        color: "#00734d" },
   { code: 2, label: "For Payment Processing",      color: "#0070ff" },
@@ -57,16 +58,16 @@ export const structureStatuses = [
   { code: 6, label: "Quit Claim",                  color: "#1b998b" },
 ];
 
-// TODO: confirm these code values match REMARKS' stored text exactly
-// (case-sensitive) against the live service.
+// TODO: confirm these match REMARKS' exact stored text (case-sensitive)
+// in the live service.
 export const oasAffectedStructuresStatuses = [
   { code: "Areas not yet Handed Over", label: "Areas not yet Handed Over", color: "#ffffff" },
   { code: "Handed Over Areas",         label: "Handed Over Areas",         color: "#f4c98b" },
   { code: "Demolished",                label: "Demolished",                color: "#8c8c8c" },
 ];
 
-// TODO: confirm these code values match Layer's stored text exactly
-// (case-sensitive) against the live service.
+// TODO: confirm these match Layer's exact stored text (case-sensitive)
+// in the live service.
 export const stationBoxStatuses = [
   { code: "U-Shape Retaining Wall", label: "U-Shape Retaining Wall", color: "#8c8c8c" },
   { code: "Cut & Cover Box",        label: "Cut & Cover Box",        color: "#8c8c8c" },
@@ -77,9 +78,8 @@ export const stationBoxStatuses = [
   { code: "NATM",                   label: "NATM",                   color: "#8c8c8c" },
 ];
 
-// TODO: confirm these code values match REMARKS' stored text exactly
-// (case-sensitive) against the live service. Colors sampled from the
-// legend screenshot.
+// TODO: confirm these match REMARKS' exact stored text in the live
+// service. Colors were sampled from the legend screenshot.
 export const demolishedStructureStatuses = [
   { code: "Demolished", label: "Demolished", color: "#ffaa00" },
   { code: "Occupied",   label: "Occupied",   color: "#99a5a2" },
@@ -90,7 +90,7 @@ export const demolishedStructureStatuses = [
 // RENDERERS
 // ============================================================
 
-// Person icon (head, torso, two legs), colored per ISF status.
+// Simple person icon (head, torso, two legs), colored per ISF status.
 const PERSON_SHAPE =
   '<circle cx="12" cy="6" r="3"/><path d="M9,11 L15,11 L15,15 L17,22 L14,22 L12,17 L10,22 L7,22 L9,15 Z"/>';
 
@@ -141,9 +141,9 @@ const structureLayerRenderer = new UniqueValueRenderer({
       outline: { color: "#423f3fff", width: 0.5 },
     }),
   })),
-  // Unset Status: same treatment as "others" in demolishedStructureRenderer
-  // (dashed outline, no fill) so unclassified structures read consistently
-  // across both layers.
+  // Structures with no Status get a dashed outline and no fill — the
+  // same look as "others" in demolishedStructureRenderer below, so
+  // unclassified structures look consistent in both layers.
   defaultSymbol: new SimpleFillSymbol({
     style: "none",
     outline: new SimpleLineSymbol({
@@ -155,8 +155,8 @@ const structureLayerRenderer = new UniqueValueRenderer({
   defaultLabel: "No Status",
 });
 
-// Solid fill per REMARKS category — deliberately not hatched, to stay
-// visually distinct from structureLayerRenderer's diagonal-hatch style.
+// Solid fill per REMARKS category. No hatching, so it stays visually
+// distinct from structureLayerRenderer's diagonal-hatch style above.
 const oasAffectedStructuresRenderer = new UniqueValueRenderer({
   field: oasAffectedStructuresStatusField,
   uniqueValueInfos: oasAffectedStructuresStatuses.map(({ code, label, color }) => ({
@@ -169,9 +169,9 @@ const oasAffectedStructuresRenderer = new UniqueValueRenderer({
   })),
 });
 
-// Demolished/Occupied get a solid fill; "others" gets a dashed
-// outline-only symbol. SimpleFillSymbol has no dashed fill style, so
-// the dash lives on the outline via SimpleLineSymbol instead.
+// Demolished and Occupied get a solid fill. "others" gets a dashed
+// outline only, no fill — SimpleFillSymbol can't do a dashed fill, so
+// the dash lives on the outline (SimpleLineSymbol) instead.
 const demolishedStructureRenderer = new UniqueValueRenderer({
   field: demolishedStructureStatusField,
   uniqueValueInfos: demolishedStructureStatuses.map(({ code, label, color }) => {
@@ -201,10 +201,10 @@ const demolishedStructureRenderer = new UniqueValueRenderer({
   }),
 });
 
-// Handed Over / To Be Handed Over / Subterranean: single-symbol
-// renderers. Each condition is a boolean/threshold, not a status enum,
-// so filtering happens via definitionExpression on the layer below
-// rather than via UniqueValueRenderer.
+// Handed Over, To Be Handed Over, and Subterranean each use one fixed
+// symbol — they're not a list of statuses, just a yes/no condition.
+// The actual filtering (HandedOVer = 1, not_yet = 1, Tunnel_Depth > 18)
+// happens on the layer's definitionExpression further down, not here.
 const handedOverLotRenderer = new SimpleRenderer({
   symbol: new SimpleFillSymbol({
     color: "#c22a77",
@@ -220,6 +220,7 @@ const toBeHandedOverLotRenderer = new SimpleRenderer({
 });
 
 const subterraneanLotRenderer = new SimpleRenderer({
+  label: "Tunnel Depth (>18m)",
   symbol: new SimpleFillSymbol({
     style: "backward-diagonal",
     color: "#6cd309",
@@ -237,6 +238,7 @@ const lotPopupTemplate = new PopupTemplate({
     {
       type: "fields",
       fieldInfos: [
+        { fieldName: "OWNER", label: "Land Owner" },
         { fieldName: "StatusNVS3", label: "Status" },
         { fieldName: "Package", label: "Package" },
         { fieldName: "Type", label: "Type" },
@@ -280,16 +282,18 @@ const structurePopupTemplate = new PopupTemplate({
 // LABELS
 // ============================================================
 
-// Static "Station Box" text, visible only past 1:50,000 zoom.
-const stationBoxLabelClass = new LabelClass({
-  labelExpressionInfo: { expression: "'Station Box'" },
+// Labels lot features with their "CN" field. Used by lotLayer and its
+// three derived layers below (handedOver, toBeHandedOver,
+// subterranean). Only shows once zoomed in past 1:50,000.
+const lotCnLabelClass = new LabelClass({
+  labelExpressionInfo: { expression: "$feature.CN" },
   symbol: new TextSymbol({
-    color: "#ffffff",
-    haloColor: "#000000",
+    color: "#000000",
+    haloColor: "#ffffff",
     haloSize: 1,
-    font: { size: 10, family: "sans-serif" },
+    font: { size: 9, family: "sans-serif" },
   }),
-  minScale: 50000,
+  minScale: 10000,
   maxScale: 0,
 });
 
@@ -303,61 +307,69 @@ export const lotLayer = new FeatureLayer({
     id: "93790e8102f84713a69e562da12bb415",
     portal: { url: "https://gis.railway-sector.com/portal" },
   },
-  outFields: ["StatusNVS3", "HandedOVer", "not_yet", "Package", "Type", "Station1", "OBJECTID", "OWNER", "Id", "Issue"],
+  outFields: ["StatusNVS3", "HandedOVer", "not_yet", "Package", "Type", "Station1", "OBJECTID", "OWNER", "Id", "Issue", "CN"],
   layerId: 31,
-  title: "MMSP Land",
+  title: "Acquisition Status",
   renderer: lotLayerRenderer,
   popupTemplate: lotPopupTemplate,
+  labelingInfo: [lotCnLabelClass],
+  labelsVisible: true,
   listMode: "show",
 });
 
-// HandedOVer = 1
+// Shows only lots where HandedOVer = 1
 export const handedOverLotsLayer = new FeatureLayer({
   portalItem: {
     id: "93790e8102f84713a69e562da12bb415",
     portal: { url: "https://gis.railway-sector.com/portal" },
   },
-  outFields: ["HandedOVer"],
+  outFields: ["HandedOVer", "CN"],
   layerId: 31,
   title: "Handed Over (GC to JV)",
   opacity: 0.9,
   renderer: handedOverLotRenderer,
   definitionExpression: "HandedOVer = 1",
   popupEnabled: false,
+  labelingInfo: [lotCnLabelClass],
+  labelsVisible: true,
   listMode: "show",
   visible: false,
 });
 
-// not_yet = 1
+// Shows only lots where not_yet = 1
 export const toBeHandedOverLotsLayer = new FeatureLayer({
   portalItem: {
     id: "93790e8102f84713a69e562da12bb415",
     portal: { url: "https://gis.railway-sector.com/portal" },
   },
-  outFields: ["not_yet"],
+  outFields: ["not_yet", "CN"],
   layerId: 31,
   title: "To Be Handed Over (to JV)",
   opacity: 0.7,
   renderer: toBeHandedOverLotRenderer,
   definitionExpression: "not_yet = 1",
   popupEnabled: false,
+  labelingInfo: [lotCnLabelClass],
+  labelsVisible: true,
   listMode: "show",
   visible: false,
 });
 
-// Tunnel_Depth > 18
+// Shows only lots deeper than 18m (tunnel depth)
 export const subterraneanLotsLayer = new FeatureLayer({
   portalItem: {
     id: "93790e8102f84713a69e562da12bb415",
     portal: { url: "https://gis.railway-sector.com/portal" },
   },
-  outFields: ["Tunnel_Depth"],
+  outFields: ["Tunnel_Depth", "CN"],
   layerId: 31,
   title: "Subterranean Lots",
   opacity: 0.7,
   renderer: subterraneanLotRenderer,
   definitionExpression: "Tunnel_Depth > 18",
   popupEnabled: false,
+  labelingInfo: [lotCnLabelClass],
+  labelsVisible: true,
   listMode: "show",
   visible: false,
 });
@@ -391,9 +403,9 @@ export const existingStructureLayer = new FeatureLayer({
   visible: true,
 });
 
-// Same source layer (9) as existingStructureLayer, symbolized by REMARKS
-// instead of Status — not a filtered subset. Both show the same features
-// through two different lenses.
+// Same source layer (9) as existingStructureLayer above, just colored
+// by REMARKS instead of Status. Not a filtered subset — both layers
+// show the same features, just styled two different ways.
 export const demolishedStructureLayer = new FeatureLayer({
   portalItem: {
     id: "0c172b82ddab44f2bb439542dd75e8ae",
@@ -458,6 +470,8 @@ export const constructionBoundaryLayer = new FeatureLayer({
   visible: true,
 });
 
+// Label scale for this layer is set directly in the portal item, not
+// here in code.
 export const stationBoxLayer = new FeatureLayer({
   portalItem: {
     id: "52d4f29105934e3f95f6b39c7e5fba6e",
@@ -469,8 +483,6 @@ export const stationBoxLayer = new FeatureLayer({
   opacity: 0.7,
   popupEnabled: false,
   listMode: "show",
-  labelingInfo: [stationBoxLabelClass],
-  labelsVisible: true,
 });
 
 export const boundaryGroupLayer = new GroupLayer({
@@ -498,6 +510,8 @@ export const bssBuildingLayer = new FeatureLayer({
   popupEnabled: false,
   listMode: "show",
   visible: true,
+  minScale: 50000,
+  maxScale: 0,
 });
 
 export const depotBuildingLayer = new FeatureLayer({
@@ -512,6 +526,8 @@ export const depotBuildingLayer = new FeatureLayer({
   popupEnabled: false,
   listMode: "show",
   visible: true,
+  minScale: 50000,
+  maxScale: 0,
 });
 
 export const dpwhSegmentLayer = new FeatureLayer({
@@ -526,6 +542,8 @@ export const dpwhSegmentLayer = new FeatureLayer({
   popupEnabled: false,
   listMode: "show",
   visible: true,
+  minScale: 50000,
+  maxScale: 0,
 });
 
 export const depotBuildingsGroupLayer = new GroupLayer({
@@ -553,6 +571,8 @@ export const senateOldConstructionBoundaryLayer = new FeatureLayer({
   popupEnabled: false,
   listMode: "show",
   visible: true,
+  minScale: 50000,
+  maxScale: 0,
 });
 
 export const senateOldStationBoxLayer = new FeatureLayer({
@@ -567,6 +587,8 @@ export const senateOldStationBoxLayer = new FeatureLayer({
   popupEnabled: false,
   listMode: "show",
   visible: true,
+  minScale: 50000,
+  maxScale: 0,
 });
 
 export const nccPropertyLayer = new FeatureLayer({
@@ -581,6 +603,8 @@ export const nccPropertyLayer = new FeatureLayer({
   popupEnabled: false,
   listMode: "show",
   visible: true,
+  minScale: 50000,
+  maxScale: 0,
 });
 
 export const senateDepEdStationGroupLayer = new GroupLayer({
@@ -608,6 +632,8 @@ export const oasAccessRoadLayer = new FeatureLayer({
   popupEnabled: false,
   listMode: "show",
   visible: true,
+  minScale: 50000,
+  maxScale: 0,
 });
 
 export const oasAffectedStructuresLayer = new FeatureLayer({
@@ -623,6 +649,8 @@ export const oasAffectedStructuresLayer = new FeatureLayer({
   popupEnabled: false,
   listMode: "show",
   visible: true,
+  minScale: 50000,
+  maxScale: 0,
 });
 
 export const ortigasStationGroupLayer = new GroupLayer({
@@ -635,7 +663,7 @@ export const ortigasStationGroupLayer = new GroupLayer({
 
 // ============================================================
 // LAYERS — East Valenzuela Station
-// (8th added in MapDisplay: eastValenzualaStationGroupLayer)
+// (8th added in MapDisplay: eastValenzuelaStationGroupLayer)
 // ============================================================
 
 export const creekDiversionLayer = new FeatureLayer({
@@ -650,26 +678,30 @@ export const creekDiversionLayer = new FeatureLayer({
   popupEnabled: false,
   listMode: "show",
   visible: true,
+  minScale: 50000,
+  maxScale: 0,
 });
 
-export const eastValenzualaStationLayer = new FeatureLayer({
+export const eastValenzuelaStationLayer = new FeatureLayer({
   portalItem: {
     id: "0c172b82ddab44f2bb439542dd75e8ae",
     portal: { url: "https://gis.railway-sector.com/portal" },
   },
   outFields: [],
   layerId: 1,
-  title: "East Valenzuala Station",
+  title: "East Valenzuela Station",
   opacity: 1,
   popupEnabled: false,
   listMode: "show",
   visible: true,
+  minScale: 50000,
+  maxScale: 0,
 });
 
-export const eastValenzualaStationGroupLayer = new GroupLayer({
-  title: "East Valenzuala Station",
+export const eastValenzuelaStationGroupLayer = new GroupLayer({
+  title: "East Valenzuela Station",
   visibilityMode: "independent",
-  layers: [creekDiversionLayer, eastValenzualaStationLayer],
+  layers: [creekDiversionLayer, eastValenzuelaStationLayer],
   visible: true,
   listMode: "show",
 });
@@ -709,4 +741,19 @@ export const stationLayer = new FeatureLayer({
   opacity: 1,
   popupEnabled: false,
   listMode: "hide",
+});
+
+// ============================================================
+// TABLES — Land Acquisition Date
+// Standalone table (no geometry), so this uses Table instead of
+// FeatureLayer. No layerId, since it's not one of several sub-layers
+// on the portal item — the item itself is the table.
+// ============================================================
+
+export const DateTable = new FeatureLayer({
+  portalItem: {
+    id: "a084d9cae5234d93b7aa50f7eb782aec",
+    portal: { url: "https://gis.railway-sector.com/portal" },
+  },
+  outFields: ["category", "date"],
 });

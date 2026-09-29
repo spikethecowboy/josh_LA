@@ -131,6 +131,7 @@ export default function TimeSlider() {
       // Fixed marks = exactly the dates found, nothing in between
       if (dates.length > 0) {
         timeSliderRef.current.stops = { dates };
+        timeSliderRef.current.playRate = 1500;
       }
     };
 

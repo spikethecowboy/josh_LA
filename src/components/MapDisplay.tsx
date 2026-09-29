@@ -8,11 +8,11 @@ import { useEffect, useRef } from "react";
 import type { ArcgisMap } from "@arcgis/map-components/dist/components/arcgis-map";
 import type MapView from "@arcgis/core/views/MapView";
 
-import { landGroupLayer, stationLayer, structuresGroupLayer, isfLayer, ortigasStationGroupLayer, alignmentLayer, eastValenzualaStationGroupLayer, depotBuildingsGroupLayer,
+import { landGroupLayer, stationLayer, structuresGroupLayer, isfLayer, ortigasStationGroupLayer, alignmentLayer, eastValenzuelaStationGroupLayer, depotBuildingsGroupLayer,
           boundaryGroupLayer, senateDepEdStationGroupLayer
  } from "../layers";
 import { useTimeSliderToggle } from "../contexts/TimeSliderContext";
-import TimeSlider from "./TimeSlider";
+import TimeSlider from "./Timeslider";
 
 // Module-level (not a React ref) so LotChart/ISFChart can import it and
 // call goTo() directly, without threading the view through context.
@@ -47,7 +47,7 @@ export default function MapDisplay() {
       viewRef.current.map?.add(depotBuildingsGroupLayer);
       viewRef.current.map?.add(senateDepEdStationGroupLayer);
       viewRef.current.map?.add(ortigasStationGroupLayer);
-      viewRef.current.map?.add(eastValenzualaStationGroupLayer);
+      viewRef.current.map?.add(eastValenzuelaStationGroupLayer);
       viewRef.current.map?.add(alignmentLayer);
       viewRef.current.map?.add(stationLayer);
     };
